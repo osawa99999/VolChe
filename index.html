@@ -810,6 +810,7 @@
         renderer.setSize(innerWidth, innerHeight);
         renderer.setPixelRatio(devicePixelRatio);
         renderer.shadowMap.enabled = true;
+        renderer.domElement.style.touchAction = 'none'; // iOS タッチ操作をPointer Eventsで完全制御
         document.body.appendChild(renderer.domElement);
 
         scene.add(new THREE.AmbientLight(0xffffff, 1.5));
@@ -2258,10 +2259,10 @@ originalGeometries = targetMeshes.map(m => m.geometry.clone());
             }
         }
 
-        renderer.domElement.addEventListener('mousedown', (e) => {
+        renderer.domElement.addEventListener('pointerdown', (e) => {
             if (mode === 'none') return;
-            // 距離調整モードは右クリックを画面移動に使うため左クリックのみ処理
-            if (mode === 'measure' && e.button !== 0) return;
+            // 距離調整モードはマウス右クリックを画面移動に使うため左クリック／タッチのみ処理
+            if (mode === 'measure' && e.pointerType === 'mouse' && e.button !== 0) return;
             if (mode !== 'measure') e.stopPropagation();
             const rect = renderer.domElement.getBoundingClientRect();
             const mouse = new THREE.Vector2(
@@ -2328,21 +2329,23 @@ originalGeometries = targetMeshes.map(m => m.geometry.clone());
             }
         });
 
-        window.addEventListener('mousemove', (e) => {
+        window.addEventListener('pointermove', (e) => {
             if (mode === 'lasso' && lassoDrawing) {
+                e.preventDefault();
                 lassoPoints.push({ x: e.clientX, y: e.clientY });
                 drawLasso();
                 return;
             }
             if (!isSelecting || mode !== 'area') return;
+            e.preventDefault();
             const b = document.getElementById('select-box');
             b.style.left = Math.min(startPoint.x, e.clientX) + 'px';
             b.style.top = Math.min(startPoint.y, e.clientY) + 'px';
             b.style.width = Math.abs(startPoint.x - e.clientX) + 'px';
             b.style.height = Math.abs(startPoint.y - e.clientY) + 'px';
-        });
+        }, { passive: false });
 
-        window.addEventListener('mouseup', (e) => {
+        window.addEventListener('pointerup', (e) => {
             // ラッソモード：ドラッグ終了でラインを閉じる
             if (mode === 'lasso' && lassoDrawing) {
                 lassoDrawing = false;
