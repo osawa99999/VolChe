@@ -21,20 +21,20 @@
 
   【バージョンルール】
     指示がない限り、軽微な更新でも毎回バージョンを 1 つ上げること。
-    例: v1.206 → v1.301
+    例: v1.206 → v1.306
 
   【Claude への引き継ぎメモ】
     - LiDAR メッシュは穴あき・非多様体が多い点に注意
     - sealHoles はファン三角形方式のため大きな開口部で誤差が出やすい
-    - ボクセル化（v1.301～）：高さマップ（2.5D）方式
+    - ボクセル化（v1.306～）：高さマップ（2.5D）方式
       XZグリッドの各セルで最大Y頂点を取得→地盤面（Y下位5%中央値）との差を積算
       ★ sealHolesはボクセル化計算から完全切り離し済み（v1.212～）
-      ★ BFS外側判定を廃止、スキャンライン内側判定に移行（v1.301～）
+      ★ BFS外側判定を廃止、スキャンライン内側判定に移行（v1.306～）
         BFSは球面メッシュのギャップから外側が内側に「漏れる」バグがあった。
         代替：行・列それぞれの有効セル両端範囲で内側を特定するスキャンライン方式。
         外側 -Infinity セル → 生成ループでskip → 幽霊ボクセル根絶。
         内側 -Infinity セル → 最大50パス平均補完 → 頂上穴を正確に埋める。
-      グリッドサイズ: 2〜50cm 固定
+      グリッドサイズ: 2〜30cm 固定
       体積 = Σ(セル面積 × (最大Y - 地盤Y))
       穴あき・非閉メッシュ・頂部欠損に強い。平地前提。
     - カット体積の誤差（球体半分で約5%）は許容範囲と判断済み
@@ -53,7 +53,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>VolChe - Volume Checker v1.301</title>
+    <title>VolChe - Volume Checker v1.306</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -823,7 +823,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.301</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.306</span>
         </div>
         <div class="panel-body">
 
@@ -928,9 +928,9 @@
                 <button class="btn" id="simplifyToggleBtn">🧱 ボクセル化（高さマップ）</button>
                 <div id="simplify-panel"
                     style="display:none; margin-top:8px; background:#000; border:1px solid rgba(57,255,143,0.2); border-radius:3px; padding:10px;">
-                    <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px;">グリッドサイズ（2〜50cm）</div>
+                    <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px;">グリッドサイズ（2〜30cm）</div>
                     <div class="simplify-row">
-                        <input type="range" id="simplifySlider" min="2" max="50" step="1" value="10">
+                        <input type="range" id="simplifySlider" min="2" max="30" step="1" value="10">
                         <span class="val" id="simplifyVal" style="width:52px;">10 cm</span>
                     </div>
                     <div id="simplify-size-hint" style="font-size:10px; color:var(--accent2); font-family:var(--mono); margin-top:2px; text-align:right; min-height:14px;"></div>
@@ -1907,7 +1907,7 @@
         let _voxelVolume = 0;             // プレビュー時に計算した体積（m³）
 
         // スライダー値 → ボクセルサイズ（メートル）
-        // スライダー 2～50 → 2cm～50cm（固定値）
+        // スライダー 2～30 → 2cm～30cm（固定値）
         function _getVoxelSize() {
             return parseInt(document.getElementById('simplifySlider').value) / 100;
         }
@@ -2007,15 +2007,14 @@
                 }
             });
 
-            // ② 地盤面 = heightMapに記録されたセルのY値下位2%の中央値
-            // ラスタライズ後はheightMapの実値を使う（頂点allYは斜面補間値が混入して下位5%がズレる）
+            // ② 地盤面 = heightMapの絶対最小値
+            // 異常に低い点があれば視覚的にすぐわかる→ユーザーが個別消去で対処できる
             const cellYs = [];
             for (let i = 0; i < nx * nz; i++) {
                 if (heightMap[i] !== -Infinity) cellYs.push(heightMap[i]);
             }
             cellYs.sort((a, b) => a - b);
-            const p2end = Math.max(1, Math.floor(cellYs.length * 0.02));
-            const groundY = cellYs[Math.floor(p2end / 2)];
+            const groundY = cellYs[0];
 
             // ③ ゴーストセル除去（スパースメッシュの孤立頂点による幽霊ボクセル防止）
             // 隣接有効セル数が2未満のセルを繰り返し侵食（Erosion）で除去。
@@ -2345,13 +2344,25 @@
 
             const voxelGeo = _simplifyPreviewGeos[0];
 
-            // 元メッシュを1つ目に焼き付け、残りを非表示化
+            // ボクセルジオメトリはワールド座標系で生成されている。
+            // そのままm.geometryに入れるとmatrixWorldが二重に掛かるため、
+            // modelGroupのtransformをリセットしてから焼き付ける。
+            modelGroup.position.set(0, 0, 0);
+            modelGroup.rotation.set(0, 0, 0);
+            modelGroup.scale.set(1, 1, 1);
+            modelGroup.updateMatrixWorld(true);
+
+            // 元メッシュを1つ目に焼き付け、残りを除去
             targetMeshes.forEach((m, i) => {
                 if (i === 0) {
                     m.geometry.dispose();
                     m.geometry = voxelGeo;
+                    // メッシュ自身のローカルtransformもリセット
+                    m.position.set(0, 0, 0);
+                    m.rotation.set(0, 0, 0);
+                    m.scale.set(1, 1, 1);
+                    m.updateMatrixWorld(true);
                 } else {
-                    // 追加メッシュはシーンから除去（ボクセルに統合済み）
                     modelGroup.remove(m);
                 }
                 if (m.material) {
@@ -2372,6 +2383,13 @@
 
             _resetSimplifyPreviewUI();
             updateVertCount();
+
+            // ③ modeBadgeをリセット（_cancelSimplifyPreviewと同様）
+            modeBadge.classList.remove('active');
+            modeBadge.innerHTML = '';
+            modeBadge.onclick = () => setMode('none');
+            mode = 'none';
+
             // パネルを閉じてvolume-file-sectionを復元（モード終了）
             const panel = document.getElementById('simplify-panel');
             const vfs = document.getElementById('volume-file-section');
@@ -3002,9 +3020,9 @@ if (changed) {
 
         // Voxelizeスライダー
         const simplifySlider = document.getElementById('simplifySlider');
-        simplifySlider.style.setProperty('--pct', ((simplifySlider.value - 2) / 48 * 100) + '%');
+        simplifySlider.style.setProperty('--pct', ((simplifySlider.value - 2) / 28 * 100) + '%');
         simplifySlider.oninput = () => {
-            simplifySlider.style.setProperty('--pct', ((simplifySlider.value - 2) / 48 * 100) + '%');
+            simplifySlider.style.setProperty('--pct', ((simplifySlider.value - 2) / 28 * 100) + '%');
             _updateSimplifySizeHint();
             // プレビュー中ならプレビューだけクリア（パネルは維持）
             if (_simplifyPreviewGeos) {
