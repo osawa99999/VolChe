@@ -1,0 +1,2654 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>VolChe - Volume Checker v1.100</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
+
+        :root {
+            --bg: #0d0f0e;
+            --panel: rgba(15, 18, 16, 0.97);
+            --accent: #39ff8f;
+            --accent2: #00c8ff;
+            --warn: #ff6b2b;
+            --text: #d4e8d4;
+            --text-dim: #5a7a5a;
+            --border: rgba(57, 255, 143, 0.15);
+            --border-bright: rgba(57, 255, 143, 0.4);
+            --mono: 'Share Tech Mono', monospace;
+            --sans: 'Barlow Condensed', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: var(--sans);
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(57, 255, 143, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(57, 255, 143, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ── LEFT PANEL ── */
+        #ui {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            width: 270px;
+            background: var(--panel);
+            border: 1px solid var(--border-bright);
+            border-radius: 4px;
+            z-index: 100;
+            box-shadow: 0 0 40px rgba(57, 255, 143, 0.08), inset 0 1px 0 rgba(57, 255, 143, 0.1);
+            overflow: hidden;
+        }
+
+        .panel-header {
+            background: rgba(57, 255, 143, 0.07);
+            border-bottom: 1px solid var(--border-bright);
+            padding: 12px 16px;
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+        }
+
+        .panel-header h1 {
+            font-family: var(--mono);
+            font-size: 15px;
+            margin: 0;
+            color: var(--accent);
+            letter-spacing: 0.05em;
+        }
+
+        .panel-header span {
+            font-size: 12px;
+            color: var(--text-dim);
+            font-weight: 300;
+        }
+
+        .panel-body {
+            padding: 14px 16px;
+        }
+
+        .section {
+            margin-bottom: 14px;
+        }
+
+        .section-label {
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--text-dim);
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            margin-bottom: 7px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .section-label::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        /* ── BUTTONS ── */
+        .btn {
+            display: block;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 9px 12px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-family: var(--sans);
+            font-size: 14px;
+            font-weight: 400;
+            letter-spacing: 0.05em;
+            text-align: center;
+            transition: all 0.15s;
+            margin-bottom: 5px;
+        }
+
+        .btn:hover {
+            background: rgba(57, 255, 143, 0.06);
+            border-color: var(--border-bright);
+            color: var(--accent);
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn.active-warn {
+            background: rgba(255, 107, 43, 0.18) !important;
+            border-color: var(--warn) !important;
+            color: var(--warn) !important;
+        }
+
+        .btn.active-blue {
+            background: rgba(0, 200, 255, 0.18) !important;
+            border-color: var(--accent2) !important;
+            color: var(--accent2) !important;
+        }
+
+        .btn-accent {
+            background: var(--accent);
+            color: #000;
+            border-color: var(--accent);
+            font-weight: 700;
+            font-size: 16px;
+            letter-spacing: 0.1em;
+            text-align: center;
+            padding: 13px;
+        }
+
+        .btn-accent:hover {
+            background: #5fffaa;
+            border-color: #5fffaa;
+            color: #000;
+        }
+
+        .btn-blue {
+            background: rgba(0, 200, 255, 0.08);
+            border-color: rgba(0, 200, 255, 0.3);
+            color: var(--accent2);
+        }
+
+        .btn-blue:hover {
+            background: rgba(0, 200, 255, 0.15);
+        }
+
+        .btn-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+        }
+
+        .btn-grid .btn {
+            margin-bottom: 0;
+        }
+
+        /* ── SIMPLIFY SLIDER ── */
+        .simplify-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 5px;
+        }
+
+        .simplify-row label {
+            font-size: 12px;
+            color: var(--text-dim);
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .simplify-row input[type=range] {
+            flex: 1;
+            min-width: 0;
+            -webkit-appearance: none;
+            height: 4px;
+            background: linear-gradient(90deg, var(--accent) var(--pct, 50%), #222 var(--pct, 50%));
+            border-radius: 2px;
+            cursor: pointer;
+        }
+
+        .simplify-row input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: var(--accent);
+            border-radius: 50%;
+        }
+
+        .simplify-row .val {
+            font-family: var(--mono);
+            font-size: 12px;
+            color: var(--accent);
+            width: 38px;
+            text-align: right;
+            flex-shrink: 0;
+        }
+
+        /* ── RESULT BOX ── */
+        #result-box {
+            background: #000;
+            border: 1px solid var(--border-bright);
+            border-radius: 3px;
+            padding: 14px;
+            text-align: center;
+            margin-bottom: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #result-box::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at 50% 100%, rgba(57, 255, 143, 0.06), transparent 70%);
+        }
+
+        .result-label {
+            font-family: var(--mono);
+            font-size: 12px;
+            color: var(--text-dim);
+            letter-spacing: 0.15em;
+            margin-bottom: 4px;
+        }
+
+        #result {
+            font-family: var(--mono);
+            font-size: 28px;
+            color: var(--accent);
+            text-shadow: 0 0 20px rgba(57, 255, 143, 0.5);
+        }
+
+        .result-unit {
+            font-size: 13px;
+            color: var(--text-dim);
+            margin-top: 2px;
+        }
+
+        /* ── STATUS BAR ── */
+        #status-bar {
+            border-top: 1px solid var(--border);
+            padding: 7px 16px;
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--text-dim);
+            display: flex;
+            justify-content: space-between;
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        #status-text {
+            color: var(--accent2);
+        }
+
+        /* ── DROP ZONE ── */
+        #drop-overlay {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(13, 15, 14, 0.92);
+            z-index: 200;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        #drop-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .drop-box {
+            border: 2px dashed var(--accent);
+            border-radius: 8px;
+            padding: 60px 80px;
+            text-align: center;
+            color: var(--accent);
+            font-family: var(--mono);
+        }
+
+        .drop-box .icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        .drop-box .main {
+            font-size: 18px;
+            letter-spacing: 0.1em;
+        }
+
+        .drop-box .sub {
+            font-size: 11px;
+            color: var(--text-dim);
+            margin-top: 6px;
+        }
+
+
+        /* ── MEASURE PANEL ── */
+        #measure-panel input:focus {
+            outline: none;
+            border-color: var(--warn) !important;
+        }
+
+        /* ── TOAST ── */
+        #toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 18, 16, 0.97);
+            border: 1px solid var(--border-bright);
+            border-radius: 4px;
+            padding: 10px 20px;
+            font-family: var(--mono);
+            font-size: 14px;
+            color: var(--accent);
+            z-index: 300;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            white-space: nowrap;
+        }
+
+        #toast.show {
+            opacity: 1;
+        }
+
+        #toast.error {
+            color: var(--warn);
+            border-color: rgba(255, 107, 43, 0.4);
+        }
+
+        /* ── MODE BADGE ── */
+        #mode-badge {
+            position: fixed;
+            bottom: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.88);
+            border: 1px solid var(--warn);
+            border-radius: 6px;
+            padding: 8px 20px;
+            font-family: var(--mono);
+            font-size: 14px;
+            color: var(--warn);
+            letter-spacing: 0.12em;
+            pointer-events: none;
+            display: none;
+            z-index: 150;
+            text-align: center;
+            box-shadow: 0 0 16px rgba(255, 107, 43, 0.25);
+        }
+
+        #mode-badge.active {
+            display: block;
+        }
+
+        body.mode-select canvas {
+            cursor: crosshair !important;
+        }
+
+
+        /* ── OSAKI LOGO ── */
+        #osaki-logo {
+            position: fixed;
+            bottom: 16px;
+            right: 16px;
+            width: 120px;
+            opacity: 0.75;
+            z-index: 100;
+            pointer-events: none;
+            filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.8));
+        }
+
+        /* ── VIEW PANEL (右上) ── */
+        #view-panel {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            width: 180px;
+            background: var(--panel);
+            border: 1px solid var(--border-bright);
+            border-radius: 4px;
+            z-index: 100;
+            box-shadow: 0 0 40px rgba(57, 255, 143, 0.08), inset 0 1px 0 rgba(57, 255, 143, 0.1);
+            padding: 10px 12px 12px;
+        }
+
+        #view-panel .section-label {
+            margin-bottom: 8px;
+        }
+
+        #view-panel .btn {
+            font-size: 13px;
+            padding: 7px 4px;
+        }
+
+
+        #select-box {
+            border: 2px solid var(--accent2);
+            background: rgba(0, 200, 255, 0.15);
+            position: fixed;
+            pointer-events: none;
+            display: none;
+            z-index: 200;
+        }
+
+        /* ── HAMBURGER BUTTONS (スマホ用) ── */
+        .hamburger-btn {
+            display: none;
+            position: fixed;
+            z-index: 300;
+            background: var(--panel);
+            border: 1px solid var(--border-bright);
+            border-radius: 4px;
+            color: var(--accent);
+            font-size: 20px;
+            width: 44px;
+            height: 44px;
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 16px rgba(57,255,143,0.15);
+        }
+
+        #hamburger-main {
+            top: 16px;
+            left: 16px;
+        }
+
+        #hamburger-view {
+            top: 16px;
+            right: 16px;
+        }
+
+        /* ── スマホ用レスポンシブ ── */
+        @media (max-width: 768px) {
+            /* ハンバーガーボタン表示 */
+            .hamburger-btn {
+                display: flex;
+            }
+
+            /* 左パネル：デフォルト非表示、開いた時だけ表示 */
+            #ui {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 280px;
+                height: 100dvh;
+                overflow-y: auto;
+                transform: translateX(-100%);
+                transition: transform 0.25s ease;
+                z-index: 250;
+                border-radius: 0;
+            }
+
+            #ui.open {
+                transform: translateX(0);
+            }
+
+            /* Viewパネル：デフォルト非表示 */
+            #view-panel {
+                position: fixed;
+                top: 0;
+                right: 0;
+                width: 200px;
+                height: auto;
+                transform: translateX(100%);
+                transition: transform 0.25s ease;
+                z-index: 250;
+                border-radius: 0;
+                padding-top: 60px;
+            }
+
+            #view-panel.open {
+                transform: translateX(0);
+            }
+
+            /* オーバーレイ（パネル開いた時の背景暗転） */
+            #panel-overlay {
+                display: none;
+                position: fixed;
+                inset: 0;
+                background: rgba(0,0,0,0.5);
+                z-index: 240;
+            }
+
+            #panel-overlay.active {
+                display: block;
+            }
+
+            /* ボタンをタッチしやすいサイズに */
+            .btn {
+                min-height: 44px;
+                padding: 10px 12px;
+            }
+
+            /* ロゴを小さく */
+            #osaki-logo {
+                width: 80px;
+                bottom: 8px;
+                right: 8px;
+            }
+
+            /* トーストを上部に */
+            #toast {
+                bottom: auto;
+                top: 70px;
+            }
+
+            /* モードバッジを上部に */
+            #mode-badge {
+                bottom: auto;
+                top: 120px;
+            }
+
+            /* D&Dオーバーレイのdrop-boxを小さく */
+            .drop-box {
+                padding: 30px 40px;
+            }
+
+            .drop-box .main {
+                font-size: 14px;
+            }
+        }
+
+        /* ── 縦向き時の横向き誘導オーバーレイ ── */
+        #rotate-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: var(--bg);
+            z-index: 9999;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            font-family: var(--mono);
+            color: var(--accent);
+        }
+        #rotate-overlay .rotate-icon {
+            font-size: 64px;
+            animation: rotate-hint 1.5s ease-in-out infinite;
+        }
+        #rotate-overlay .rotate-msg {
+            font-size: 16px;
+            letter-spacing: 0.1em;
+            color: var(--text);
+        }
+        #rotate-overlay .rotate-sub {
+            font-size: 12px;
+            color: var(--text-dim);
+            letter-spacing: 0.08em;
+        }
+        @keyframes rotate-hint {
+            0%, 100% { transform: rotate(0deg); }
+            40% { transform: rotate(90deg); }
+            60% { transform: rotate(90deg); }
+        }
+        @media (orientation: portrait) {
+            #rotate-overlay { display: flex; }
+        }
+
+    </style>
+</head>
+
+<body>
+
+    <!-- 縦向き時の横向き誘導オーバーレイ -->
+    <div id="rotate-overlay">
+        <div class="rotate-icon">📱</div>
+        <div class="rotate-msg">横向きにしてね</div>
+        <div class="rotate-sub">VolChe は横向き専用です</div>
+    </div>
+
+    <div id="select-box"></div>
+    <!-- ラッソ描画用オーバーレイCanvas -->
+    <canvas id="lasso-canvas" style="position:fixed; inset:0; pointer-events:none; z-index:150; display:none;"></canvas>
+
+    <!-- スマホ用ハンバーガーボタン -->
+    <button class="hamburger-btn" id="hamburger-main" aria-label="メインメニュー">☰</button>
+    <button class="hamburger-btn" id="hamburger-view" aria-label="ビューメニュー">◉</button>
+
+    <!-- パネル開閉時の背景オーバーレイ -->
+    <div id="panel-overlay"></div>
+
+    <!-- ファイル選択input（非表示、D&Dできない環境向け） -->
+    <input type="file" id="file-input" accept=".fbx,.glb,.gltf" style="display:none;">
+
+    <div id="drop-overlay" class="active">
+        <div class="drop-box">
+            <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
+            <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:16px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
+            <div class="icon">📦</div>
+            <div class="main">FBX / GLB ファイルをD&amp;Dして</div>
+            <div class="sub">ここにドロップしてください</div>
+            <div class="sub" style="margin-top:6px; color:var(--accent2);">📱 スマホ・タブレットはここをタップ</div>
+            <div style="margin-top:20px; opacity:0.6; width:80px; margin-left:auto; margin-right:auto;">
+                <svg viewBox="0 0 203.7059 79.468788" xmlns="http://www.w3.org/2000/svg">
+                    <g transform="translate(-3.5936313,-112.12337)">
+                        <g transform="matrix(0.08197308,0,0,0.08350753,-17.592169,112.6698)">
+                            <g>
+                                <path d="m 1013.9219,127.77188 h 211.8644 a 183.12817,183.12817 0 0 0 47.8782,138.18991 l 102.799,120.03492 a 325.44604,325.44604 0 0 1 78.1671,135.13456 251.38502,251.38502 0 0 1 -68.335,250.9397 233.34641,233.34641 0 0 1 -160.4638,64.79002 H 975.73598 l -0.1723,-166.1584 204.00582,-2.5e-4 a 76.582585,76.582585 0 0 0 76.5676,-70.90162 61.075916,61.075916 0 0 0 -3.8663,-34.50968 268.31177,268.31177 0 0 0 -21.0341,-38.29651 L 1065.907,332.04148 a 215.93372,215.93372 0 0 1 -58.8059,-170.61314 z" style="fill:#0033cc"/>
+                                <path d="M 2028.3579,-4.401004 H 1501.0851 V 626.19762 l 166.4896,-493.27097 h 194.2936 l 166.4896,493.27097 z m 0,840.572704 H 1902.043 L 1764.7215,371.85487 1627.4,836.1717 h -126.3149 v 106.7785 h 527.2728 z M 1501.0851,626.19762 1430.2143,836.1717 h 70.8708 z m 527.2728,0 V 836.1717 h 70.8707 z" style="fill:#ff0000"/>
+                                <path d="M 2741.3399,407.63241 H 2551.5626 V 836.1717 h 189.7773 z" style="fill:#0033cc"/>
+                                <path d="M 2741.3399,132.92665 H 2551.5626 V 299.9831 h 189.7773 z" style="fill:#0033cc"/>
+                                <path d="M 2525.2909,132.92665 H 2291.9268 L 2064.5737,403.85691 V 561.0103 l 230.9037,275.1614 h 252.2938 L 2241.4645,471.15459 Z" style="fill:#0033cc"/>
+                                <path d="m 298.07648,312.74647 a 413.72591,413.72591 0 0 0 -22.48739,282.46936 397.06669,397.06669 0 0 0 152.66443,214.22281 406.37669,406.37669 0 0 0 210.29413,57.168 406.37669,406.37669 0 0 0 210.29413,-57.168 A 397.06669,397.06669 0 0 0 1001.5062,595.21583 413.72591,413.72591 0 0 0 979.01883,312.74647 433.12428,433.12428 0 0 0 795.56114,144.04737 417.9867,417.9867 0 0 0 638.54765,110.70849 417.9867,417.9867 0 0 0 481.53417,144.04737 433.12428,433.12428 0 0 0 298.07648,312.74647 Z M 638.52678,699.22631 a 206.87466,168.39599 90 0 0 0,-413.74931 206.87466,168.39599 90 0 0 0,413.74931 z" style="fill:#0033cc;fill-rule:evenodd"/>
+                            </g>
+                        </g>
+                    </g>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- OSAKI LOGO -->
+    <div id="osaki-logo">
+        <svg viewBox="0 0 203.7059 79.468788" xmlns="http://www.w3.org/2000/svg"
+            xmlns:xlink="http://www.w3.org/1999/xlink">
+            <g transform="translate(-3.5936313,-112.12337)">
+                <g transform="matrix(0.08197308,0,0,0.08350753,-17.592169,112.6698)">
+                    <g id="g512">
+                        <path
+                            d="m 1013.9219,127.77188 h 211.8644 a 183.12817,183.12817 0 0 0 47.8782,138.18991 l 102.799,120.03492 a 325.44604,325.44604 0 0 1 78.1671,135.13456 251.38502,251.38502 0 0 1 -68.335,250.9397 233.34641,233.34641 0 0 1 -160.4638,64.79002 H 975.73598 l -0.1723,-166.1584 204.00582,-2.5e-4 a 76.582585,76.582585 0 0 0 76.5676,-70.90162 61.075916,61.075916 0 0 0 -3.8663,-34.50968 268.31177,268.31177 0 0 0 -21.0341,-38.29651 L 1065.907,332.04148 a 215.93372,215.93372 0 0 1 -58.8059,-170.61314 z"
+                            style="fill:#0033cc" />
+                        <path
+                            d="M 2028.3579,-4.401004 H 1501.0851 V 626.19762 l 166.4896,-493.27097 h 194.2936 l 166.4896,493.27097 z m 0,840.572704 H 1902.043 L 1764.7215,371.85487 1627.4,836.1717 h -126.3149 v 106.7785 h 527.2728 z M 1501.0851,626.19762 1430.2143,836.1717 h 70.8708 z m 527.2728,0 V 836.1717 h 70.8707 z"
+                            style="fill:#ff0000" />
+                        <path d="M 2741.3399,407.63241 H 2551.5626 V 836.1717 h 189.7773 z" style="fill:#0033cc" />
+                        <path d="M 2741.3399,132.92665 H 2551.5626 V 299.9831 h 189.7773 z" style="fill:#0033cc" />
+                        <path
+                            d="M 2525.2909,132.92665 H 2291.9268 L 2064.5737,403.85691 V 561.0103 l 230.9037,275.1614 h 252.2938 L 2241.4645,471.15459 Z"
+                            style="fill:#0033cc" />
+                        <path
+                            d="m 298.07648,312.74647 a 413.72591,413.72591 0 0 0 -22.48739,282.46936 397.06669,397.06669 0 0 0 152.66443,214.22281 406.37669,406.37669 0 0 0 210.29413,57.168 406.37669,406.37669 0 0 0 210.29413,-57.168 A 397.06669,397.06669 0 0 0 1001.5062,595.21583 413.72591,413.72591 0 0 0 979.01883,312.74647 433.12428,433.12428 0 0 0 795.56114,144.04737 417.9867,417.9867 0 0 0 638.54765,110.70849 417.9867,417.9867 0 0 0 481.53417,144.04737 433.12428,433.12428 0 0 0 298.07648,312.74647 Z M 638.52678,699.22631 a 206.87466,168.39599 90 0 0 0,-413.74931 206.87466,168.39599 90 0 0 0,413.74931 z"
+                            style="fill:#0033cc;fill-rule:evenodd" />
+                    </g>
+                </g>
+            </g>
+        </svg>
+    </div>
+
+
+
+    <div id="ui">
+        <div class="panel-header">
+            <h1><b>VolChe</b></h1>
+            <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.100</span>
+        </div>
+        <div class="panel-body">
+
+            <div class="section">
+                <div class="section-label">Edit</div>
+                <div class="btn-grid">
+                    <button class="btn" id="singleDel">個別指定消去</button>
+                    <button class="btn" id="areaDel">矩形範囲消去</button>
+                </div>
+                <button class="btn" id="lassoDelBtn" style="margin-top:5px; color:var(--warn); border-color:rgba(255,107,43,0.35);">✏ 範囲外消去</button>
+                <!-- ラッソ消去実行ボタン（範囲外消去モード中のみ表示） -->
+                <div id="lasso-ui" style="display:none; margin-top:6px; background:#000; border:1px solid rgba(255,107,43,0.3); border-radius:3px; padding:8px;">
+                    <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; line-height:1.5;">囲んだ範囲の<b style="color:var(--warn);">外側</b>を消去します<br>マウスドラッグでラインを描いてね</div>
+                    <div style="font-size:11px; color:var(--warn); font-family:var(--mono); margin-bottom:6px; line-height:1.5; padding:4px 6px; border:1px solid rgba(255,107,43,0.3); border-radius:2px; background:rgba(255,107,43,0.07);">⚠ 底面のあるオブジェクトの一部を消去する場合、底面が残る場合があります！</div>
+                    <button class="btn" id="lassoExecBtn" style="background:var(--warn); color:#000; border-color:var(--warn); font-weight:900; font-size:15px; margin-bottom:4px;">⚡ 消去実行</button>
+                    <button class="btn" id="lassoClearBtn" style="background:rgba(255,255,255,0.12); color:#fff; border-color:rgba(255,255,255,0.4); font-size:13px; font-weight:700;">✕ 描き直し</button>
+                </div>
+                <div class="btn-grid" style="margin-top:5px;">
+                    <button class="btn" id="btn-toggle-cutter" style="font-size:11px; line-height:1.3; padding:7px 6px;">地盤面設定（下部カット）</button>
+                    <button class="btn" id="measureBtn" style="font-size:11px; line-height:1.3; padding:7px 6px;">距離測定 (rescale)</button>
+                </div>
+                <button class="btn" id="undoBtn" style="margin-top:5px;">↩ 元に戻す</button>
+
+                <!-- カットツール展開パネル -->
+                <div id="cutter-ui"
+                    style="display:none; margin-top:8px; background:#000; border:1px solid rgba(0,200,255,0.3); border-radius:3px; padding:10px;">
+                    <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:6px;">
+                        カット平面の高さ</div>
+                    <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
+                        <input type="range" id="cut-height" min="0" max="100" value="0" style="flex:1;">
+                        <span id="cut-height-val"
+                            style="font-family:var(--mono); font-size:11px; color:var(--accent2); width:45px; text-align:right;">0%</span>
+                    </div>
+                    <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px;">傾き X
+                        (±25°)</div>
+                    <input type="range" id="cut-tilt-x" min="-25" max="25" value="0"
+                        style="width:100%; margin-bottom:8px;">
+                    <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px;">傾き Z
+                        (360°)</div>
+                    <input type="range" id="cut-tilt-z" min="0" max="360" value="0"
+                        style="width:100%; margin-bottom:8px;">
+                    <button class="btn" id="btn-execute-fusion"
+                        style="border-color:var(--warn); color:var(--warn); margin-top:4px;">⚡ カット実行 &amp;
+                        底面閉じる</button>
+                </div>
+
+                <!-- 距離調整展開パネル -->
+                <div id="measure-panel"
+                    style="display:none; margin-top:8px; background:#000; border:1px solid rgba(255,107,43,0.3); border-radius:3px; padding:10px;">
+                    <div style="font-size:13px; color:var(--text-dim); margin-bottom:6px; font-family:var(--mono);">
+                        計測距離: <span id="dist-raw"
+                            style="color:var(--warn); font-size:16px; font-weight:bold;">0.000</span> m</div>
+                    <div
+                        style="margin-bottom:6px; display:flex; align-items:center; gap:4px; flex-wrap:nowrap; overflow:hidden;">
+                        <span style="color:var(--text-dim); font-size:13px;">正しい長さ</span>
+                        <input type="number" id="dist-real" step="0.001"
+                            style="width:80px; min-width:0; background:#111; border:1px solid #555; color:var(--warn); padding:4px 6px; border-radius:3px; font-family:var(--mono); font-size:14px;">
+                        m
+                    </div>
+                    <button class="btn" id="applyScaleBtn"
+                        style="background:rgba(255,107,43,0.15); border-color:rgba(255,107,43,0.4); color:var(--warn); font-weight:700;">この長さに縮尺を合わせる</button>
+                    <div id="scale-hint"
+                        style="display:none; margin-top:8px; padding:7px 10px; background:rgba(0,200,255,0.08); border:1px solid rgba(0,200,255,0.3); border-radius:3px; font-size:12px; color:var(--accent2); font-family:var(--mono); line-height:1.5;">
+                        ⚠ スケール変更後は<br>「視点再調整」を押して<br>表示を正確にしてね！
+                    </div>
+                </div>
+            </div>
+
+            <!-- 体積計算 -->
+            <div id="result-box">
+                <div class="result-label">VOLUME</div>
+                <div id="result">---</div>
+                <div class="result-unit">m³</div>
+            </div>
+            <div style="font-size:10px; color:var(--text-dim); font-family:var(--mono); text-align:center; margin-bottom:6px; line-height:1.5;">
+                ※ 正確な計算は<span style="color:var(--accent2);">視点再調整</span>後に実行してね
+            </div>
+            <button class="btn btn-accent" id="calcBtn">▶ 体積計算</button>
+
+            <div class="section" style="margin-top:14px;">
+                <div class="section-label">File</div>
+                <button class="btn btn-blue" id="exportBtn">⬇ GLB形式で保存</button>
+
+                <div style="
+                    font-size:11px;
+                        color:var(--text-dim);
+                            margin-top:4px;
+                                line-height:1.4;
+                                text-align: center;
+                                ">
+                    ※ GLBは PowerPoint や Web で表示できる<br>
+                    汎用的な3Dファイル形式です
+                </div>
+
+            </div>
+
+            <div class="section">
+                <div class="section-label">Simplify</div>
+                <button class="btn" id="simplifyToggleBtn">⚙ 頂点マージ（簡略化）</button>
+                <div id="simplify-panel"
+                    style="display:none; margin-top:8px; background:#000; border:1px solid rgba(57,255,143,0.2); border-radius:3px; padding:10px;">
+                    <div class="simplify-row">
+                        <label>マージ距離</label>
+                        <input type="range" id="simplifySlider" min="0" max="25" step="1" value="5">
+                        <span class="val" id="simplifyVal">5%</span>
+                    </div>
+                    <div style="font-size:10px; color:var(--text-dim); font-family:var(--mono); line-height:1.5; margin-top:4px;">近接頂点を統合して面をまとめます。<br>穴は開きません。やり過ぎ注意！</div>
+                    <button class="btn" id="simplifyBtn"
+                        style="margin-top:8px; border-color:rgba(57,255,143,0.4); color:var(--accent);">実行</button>
+                </div>
+            </div>
+
+        </div>
+        <div id="status-bar">
+            <span id="status-text">READY</span>
+            <span id="vert-count">--</span>
+        </div>
+    </div>
+
+
+    <!-- VIEW PANEL (右上フロート) -->
+    <div id="view-panel">
+        <div class="section-label">View</div>
+        <div class="btn-grid">
+            <button class="btn" id="view-top">平面</button>
+            <button class="btn" id="view-front">正面</button>
+            <button class="btn" id="view-right">右側面</button>
+            <button class="btn" id="view-left">左側面</button>
+            <button class="btn" id="view-back">背面</button>
+            <button class="btn" id="resetView">俯瞰</button>
+        </div>
+        <button class="btn" id="resetRoll"
+            style="margin-top:6px; background:rgba(0,200,255,0.15); color:var(--accent2); border-color:rgba(0,200,255,0.6); font-size:15px; font-weight:700; letter-spacing:0.08em; padding:11px;">⊕ 視点再調整 <span style="font-size:10px; opacity:0.6;">[R]</span></button>
+    </div>
+
+    <div id="toast"></div>
+    <div id="mode-badge"></div>
+
+    <script type="importmap">
+{
+    "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+}
+</script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+        import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
+
+        // ─────────────────────────────────────────────
+        // Main Scene
+        // ─────────────────────────────────────────────
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0d0a);
+
+        const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.01, 100000);
+        camera.position.set(0, 10, 20);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(innerWidth, innerHeight);
+        renderer.setPixelRatio(devicePixelRatio);
+        renderer.shadowMap.enabled = true;
+        renderer.domElement.style.touchAction = 'none'; // iOS タッチ操作をPointer Eventsで完全制御
+        document.body.appendChild(renderer.domElement);
+
+        scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        dirLight.position.set(10, 20, 10);
+        scene.add(dirLight);
+
+        const modelGroup = new THREE.Group();
+        scene.add(modelGroup);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = false;
+        const raycaster = new THREE.Raycaster();
+        const startPoint = new THREE.Vector2();
+        let isSelecting = false;
+
+        // ─────────────────────────────────────────────
+        // State
+        // ─────────────────────────────────────────────
+        let targetMeshes = [];
+        let originalGeometries = [];
+        const HISTORY_MAX = 30;
+        let history = [];
+        let mode = 'none';
+        let activePointerId = null; // iOS Pointer Capture管理用
+        let fileLoaded = false; // ① D&D overlay制御フラグ
+        let measurePoints = [], measureMarkers = [], measureLine = null;
+        let cuttingPlane = null;
+        let wireframeMeshes = []; // エッジ表示用
+
+        // ─────────────────────────────────────────────
+        // ─────────────────────────────────────────────
+        // ─────────────────────────────────────────────
+        // ワイヤーフレーム表示（体積計算対象の可視化）
+        // ─────────────────────────────────────────────
+        function updateWireframe() {
+            // 古いワイヤーフレームを削除
+            wireframeMeshes.forEach(w => scene.remove(w));
+            wireframeMeshes = [];
+
+            targetMeshes.forEach(m => {
+                const wGeo = new THREE.WireframeGeometry(m.geometry);
+                const wMat = new THREE.LineBasicMaterial({
+                    color: 0x39ff8f,
+                    transparent: true,
+                    opacity: 0.35,
+                    depthTest: true
+                });
+                const wMesh = new THREE.LineSegments(wGeo, wMat);
+                wMesh.matrix.copy(m.matrixWorld);
+                wMesh.matrixAutoUpdate = false;
+                scene.add(wMesh);
+                wireframeMeshes.push(wMesh);
+            });
+        }
+
+        function clearWireframe() {
+            wireframeMeshes.forEach(w => scene.remove(w));
+            wireframeMeshes = [];
+        }
+
+
+        function findLoops(edges) {
+            const adj = new Map();
+            edges.forEach(([p1, p2]) => {
+                const k1 = p1.join(','), k2 = p2.join(',');
+                if (!adj.has(k1)) adj.set(k1, []);
+                if (!adj.has(k2)) adj.set(k2, []);
+                adj.get(k1).push(p2); adj.get(k2).push(p1);
+            });
+            const loops = [], visited = new Set();
+            adj.forEach((_, startKey) => {
+                if (visited.has(startKey)) return;
+                const loop = []; let curr = startKey.split(',').map(Number);
+                while (curr) {
+                    const ck = curr.join(','); if (visited.has(ck)) break;
+                    visited.add(ck); loop.push(curr);
+                    curr = adj.get(ck).find(n => !visited.has(n.join(','))) || null;
+                }
+                if (loop.length > 2) loops.push(loop);
+            });
+            return loops;
+        }
+
+        let sealPatches = []; 
+        function showSealWireframe(patchGeo) {
+            const old = scene.getObjectByName('sealWireframe');
+            if (old) scene.remove(old);
+
+            const wire = new THREE.LineSegments(
+                new THREE.WireframeGeometry(patchGeo),
+                new THREE.LineBasicMaterial({
+                    color: 0x39ff8f,
+                    transparent: true,
+                    opacity: 0.4,
+                    depthTest: true
+                })
+            );
+
+            wire.name = 'sealWireframe';
+            wire.renderOrder = 0;
+            scene.add(wire);
+        }
+
+        // ─────────────────────────────────────────────
+        // 【VolChe v1.006 最終形態】V1.7ループ抽出 ＋ 垂直・水平密閉
+        // ─────────────────────────────────────────────
+        function sealHoles(geo) {
+            const tempGeo = geo.toNonIndexed();
+            const posAttr = tempGeo.attributes.position;
+
+            // BBox（精度決定）とメッシュ重心（キャップ法線方向判定）を同時に計算
+            // ★ maxExtent（メッシュ寸法）で精度決定：resetRoll前後で変わらない
+            // ★ meshCenter：キャップの外向き法線を保証するために使用
+            let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity,minZ=Infinity,maxZ=-Infinity;
+            let sumX=0, sumY=0, sumZ=0, vCnt=0;
+            for (let i = 0; i < posAttr.count; i++) {
+                const x=posAttr.getX(i), y=posAttr.getY(i), z=posAttr.getZ(i);
+                if (isNaN(x)) continue;
+                if(x<minX)minX=x; if(x>maxX)maxX=x;
+                if(y<minY)minY=y; if(y>maxY)maxY=y;
+                if(z<minZ)minZ=z; if(z>maxZ)maxZ=z;
+                sumX+=x; sumY+=y; sumZ+=z; vCnt++;
+            }
+            const maxExtent = Math.max(maxX-minX, maxY-minY, maxZ-minZ);
+            const decimals = Math.max(2, Math.min(6, 5 - Math.floor(Math.log10(Math.max(maxExtent, 0.001)))));
+            const fmt = v => v.toFixed(decimals);
+            // メッシュ重心（凸形状であれば内部点になる）
+            const meshCenter = vCnt > 0
+                ? new THREE.Vector3(sumX/vCnt, sumY/vCnt, sumZ/vCnt)
+                : new THREE.Vector3();
+
+            const edgeMap = new Map();
+            for (let i = 0; i < posAttr.count; i += 3) {
+                const v = [
+                    `${fmt(posAttr.getX(i))},${fmt(posAttr.getY(i))},${fmt(posAttr.getZ(i))}`,
+                    `${fmt(posAttr.getX(i + 1))},${fmt(posAttr.getY(i + 1))},${fmt(posAttr.getZ(i + 1))}`,
+                    `${fmt(posAttr.getX(i + 2))},${fmt(posAttr.getY(i + 2))},${fmt(posAttr.getZ(i + 2))}`
+                ];
+                [[v[0], v[1]], [v[1], v[2]], [v[2], v[0]]].forEach(e => {
+                    const key = e.sort().join('|');
+                    if (!edgeMap.has(key)) edgeMap.set(key, { count: 0, pts: e.map(s => s.split(',').map(Number)) });
+                    edgeMap.get(key).count++;
+                });
+            }
+
+            const boundaries = [];
+            edgeMap.forEach((val) => { if (val.count === 1) boundaries.push(val.pts); });
+            if (boundaries.length === 0) return geo;
+
+            const loops = findLoops(boundaries);
+            const patchPos = [];
+
+            loops.forEach(loop => {
+                let avgX = 0, avgY = 0, avgZ = 0;
+                loop.forEach(pt => { avgX += pt[0]; avgY += pt[1]; avgZ += pt[2]; });
+                const cX = avgX / loop.length, cY = avgY / loop.length, cZ = avgZ / loop.length;
+                const pc = new THREE.Vector3(cX, cY, cZ);
+
+                // ── キャップの外向き法線を保証 ──────────────────────────
+                // findLoops の辿り順（CW/CCW）は頂点キーの挿入順に依存し不定。
+                // 三角形(loop[0], center, loop[1])の法線を計算し、
+                // メッシュ重心方向（内向き）なら逆順にして外向きに統一する。
+                if (loop.length >= 2) {
+                    const p0 = new THREE.Vector3(loop[0][0], loop[0][1], loop[0][2]);
+                    const p1 = new THREE.Vector3(loop[1][0], loop[1][1], loop[1][2]);
+                    // 三角形(p0, center, p1)の法線 = (center-p0)×(p1-p0)
+                    const capNormal = pc.clone().sub(p0).cross(p1.clone().sub(p0));
+                    // 法線がメッシュ重心方向（内向き）なら逆順 → 外向きに
+                    if (capNormal.dot(meshCenter.clone().sub(pc)) > 0) {
+                        loop.reverse();
+                    }
+                }
+
+                for (let i = 0; i < loop.length; i++) {
+                    const p1 = loop[i];
+                    const p2 = loop[(i + 1) % loop.length];
+                    patchPos.push(p1[0], p1[1], p1[2], cX, cY, cZ, p2[0], p2[1], p2[2]);
+                }
+            });
+
+            const patchGeo = new THREE.BufferGeometry();
+            patchGeo.setAttribute('position', new THREE.Float32BufferAttribute(patchPos, 3));
+
+            showSealWireframe(patchGeo);
+            if (typeof updateVisualCap === 'function') updateVisualCap(patchGeo);
+
+            try {
+                return BufferGeometryUtils.mergeGeometries([tempGeo, patchGeo]);
+            } catch (e) {
+                return geo;
+            }
+        }
+
+        // 断面（底面）の可視化：V1.7の美しさをV2.0へ
+        function updateVisualCap(patchGeo) {
+            const old = scene.getObjectByName('visualCap');
+            if (old) scene.remove(old);
+
+            const group = new THREE.Group();
+            group.name = 'visualCap';
+
+            // ワイヤーフレーム（あのグリッド感）
+            const wire = new THREE.LineSegments(
+                new THREE.WireframeGeometry(patchGeo),
+                new THREE.LineBasicMaterial({ color: 0x39ff8f, transparent: true, opacity: 0.4, depthTest: true })
+            );
+
+            // 半透明の面（計算範囲を視覚的に強調）
+            const mesh = new THREE.Mesh(
+                patchGeo,
+                new THREE.MeshBasicMaterial({ color: 0x39ff8f, transparent: true, opacity: 0.08, side: THREE.DoubleSide, depthTest: true, depthWrite: false })
+            );
+
+            group.add(wire);
+            group.add(mesh);
+            group.renderOrder = 0; // 通常深度順
+            scene.add(group);
+        }
+
+        let belowHighlightMesh = null;
+
+        // NaN頂点を除外してY方向の実際の範囲を取得
+        function getMeshYRange() {
+            let minY = Infinity, maxY = -Infinity;
+            const v = new THREE.Vector3();
+            targetMeshes.forEach(m => {
+                const pos = m.geometry.attributes.position;
+                const mat = m.matrixWorld;
+                for (let i = 0; i < pos.count; i++) {
+                    v.fromBufferAttribute(pos, i);
+                    if (isNaN(v.x) || isNaN(v.y) || isNaN(v.z)) continue;
+                    v.applyMatrix4(mat);
+                    if (v.y < minY) minY = v.y;
+                    if (v.y > maxY) maxY = v.y;
+                }
+            });
+            return { minY: isFinite(minY) ? minY : 0, maxY: isFinite(maxY) ? maxY : 1 };
+        }
+
+        function updateCutterPlane() {
+            if (!cuttingPlane || targetMeshes.length === 0) return;
+            modelGroup.updateMatrixWorld(true);
+            const { minY, maxY } = getMeshYRange();
+            const h = document.getElementById('cut-height').value / 100;
+            const cutY = minY + (maxY - minY) * h;
+            document.getElementById('cut-height-val').textContent = cutY.toFixed(2) + 'm';
+            cuttingPlane.position.y = cutY;
+            const tx = THREE.MathUtils.degToRad(document.getElementById('cut-tilt-x').value);
+            const tz = THREE.MathUtils.degToRad(document.getElementById('cut-tilt-z').value);
+            const q1 = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2 + tx, 0, 0, 'XYZ'));
+            const q2 = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), tz);
+            cuttingPlane.quaternion.multiplyQuaternions(q2, q1);
+            updateBelowHighlight(cutY);
+        }
+
+        // カット平面より下を半透明赤でハイライト
+        function updateBelowHighlight(cutY) {
+            // 古いハイライトを削除
+            if (belowHighlightMesh) { scene.remove(belowHighlightMesh); belowHighlightMesh = null; }
+            if (!cuttingPlane.visible) return;
+
+            const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(cuttingPlane.quaternion);
+            const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, cuttingPlane.position);
+
+            const belowPos = [];
+            const v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), v3 = new THREE.Vector3();
+            targetMeshes.forEach(m => {
+                const p = m.geometry.attributes.position, mat = m.matrixWorld;
+                for (let i = 0; i + 2 < p.count; i += 3) {
+                    v1.fromBufferAttribute(p, i).applyMatrix4(mat);
+                    v2.fromBufferAttribute(p, i + 1).applyMatrix4(mat);
+                    v3.fromBufferAttribute(p, i + 2).applyMatrix4(mat);
+                    if (isNaN(v1.x) || isNaN(v2.x) || isNaN(v3.x)) continue;
+                    // 全頂点がカット平面以下の面のみ赤表示
+                    if (plane.distanceToPoint(v1) < 0 && plane.distanceToPoint(v2) < 0 && plane.distanceToPoint(v3) < 0) {
+                        belowPos.push(v1.x, v1.y, v1.z, v2.x, v2.y, v2.z, v3.x, v3.y, v3.z);
+                    }
+                }
+            });
+
+            if (belowPos.length === 0) return;
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(belowPos, 3));
+            geo.computeVertexNormals();
+            belowHighlightMesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+                color: 0xff3300, transparent: true, opacity: 0.45,
+                side: THREE.DoubleSide, depthWrite: false
+            }));
+            belowHighlightMesh.renderOrder = 3;
+            scene.add(belowHighlightMesh);
+        }
+
+        function executeCut() {
+            if (targetMeshes.length === 0) { toast('先にファイルを読み込んでね', true); return; }
+
+            modelGroup.updateMatrixWorld(true);
+            sealPatches = [];
+            pushHistory();
+            setStatus('CUTTING...');
+            toast('カット実行中...');
+
+            const cutNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(cuttingPlane.quaternion);
+            const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(cutNormal, cuttingPlane.position);
+            const capY = cuttingPlane.position.y;
+
+            targetMeshes.forEach(m => {
+                const mat = m.matrixWorld;
+                const matInv = mat.clone().invert();
+                const geo = m.geometry.toNonIndexed();
+                const pos = geo.attributes.position;
+                const newPos = [];
+
+                const e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), fn = new THREE.Vector3();
+
+                for (let i = 0; i < pos.count; i += 3) {
+                    // ワールド座標に変換
+                    const v = [
+                        new THREE.Vector3().fromBufferAttribute(pos, i).applyMatrix4(mat),
+                        new THREE.Vector3().fromBufferAttribute(pos, i + 1).applyMatrix4(mat),
+                        new THREE.Vector3().fromBufferAttribute(pos, i + 2).applyMatrix4(mat)
+                    ];
+
+                    // ── 修正①：前回の底面除去 ──
+                    // 面法線を計算し、カット平面法線とほぼ平行（内積>0.99）かつ
+                    // カット平面付近（Y差が小さい）の面は「前回の底面」として除去
+                    e1.subVectors(v[1], v[0]); e2.subVectors(v[2], v[0]);
+                    fn.crossVectors(e1, e2).normalize();
+                    const parallelToCut = Math.abs(fn.dot(cutNormal)) > 0.95;
+                    // どの座標でもほぼ平坦でカット面に近いなら前回底面なのでスキップ
+                    // ただし現在のカット面より上にある場合は通常面として残す
+                    if (parallelToCut && v.every(p => plane.distanceToPoint(p) <= 0.05)) {
+                        // この面はカット平面より下（または平面上）の底面ポリゴン→スキップ
+                        continue;
+                    }
+
+                    // カット処理
+                    const dists = v.map(p => plane.distanceToPoint(p));
+                    const above = [], below = [];
+                    v.forEach((p, idx) => { if (dists[idx] >= 0) above.push(p); else below.push(p); });
+
+                    const toLoc = (wp) => wp.clone().applyMatrix4(matInv);
+
+                    if (below.length === 0) {
+                        v.forEach(p => { const lp = toLoc(p); newPos.push(lp.x, lp.y, lp.z); });
+                    } else if (above.length === 1) {
+                        const a = above[0], b1 = below[0], b2 = below[1];
+                        const i1 = new THREE.Vector3(), i2 = new THREE.Vector3();
+                        plane.intersectLine(new THREE.Line3(a, b1), i1);
+                        plane.intersectLine(new THREE.Line3(a, b2), i2);
+                        [a, i1, i2].forEach(p => { const lp = toLoc(p); newPos.push(lp.x, lp.y, lp.z); });
+                    } else if (above.length === 2) {
+                        const a1 = above[0], a2 = above[1], b = below[0];
+                        const i1 = new THREE.Vector3(), i2 = new THREE.Vector3();
+                        plane.intersectLine(new THREE.Line3(a1, b), i1);
+                        plane.intersectLine(new THREE.Line3(a2, b), i2);
+                        [a1, a2, i1].forEach(p => { const lp = toLoc(p); newPos.push(lp.x, lp.y, lp.z); });
+                        [a2, i2, i1].forEach(p => { const lp = toLoc(p); newPos.push(lp.x, lp.y, lp.z); });
+                    }
+                }
+
+                const cutGeo = new THREE.BufferGeometry();
+                cutGeo.setAttribute('position', new THREE.Float32BufferAttribute(newPos, 3));
+
+                // ★ sealHolesはビジュアル表示（緑ワイヤー・半透明面）にのみ使用
+                // ジオメトリ自体には焼き付けない。体積計算はcalcVolumeが唯一のシール担当。
+                // sealHolesをm.geometryに焼くと、calcVolumeがワールド座標で再度sealHolesを
+                // 走らせた時にローカル/ワールドの座標系不一致でダブルシール→誤差の原因になる。
+                sealHoles(cutGeo); // ← 戻り値を使わず、ビジュアル更新のみ目的で呼ぶ
+
+                cutGeo.computeVertexNormals();
+                cutGeo.computeBoundingBox();
+                cutGeo.computeBoundingSphere();
+                m.geometry.dispose();
+                m.geometry = cutGeo; // ← カットのみ（未シール）のジオメトリを保存
+            });
+
+            updateVertCount();
+            // カット後はハイライトをクリア
+            if (belowHighlightMesh) { scene.remove(belowHighlightMesh); belowHighlightMesh = null; }
+            // スライダーを0にリセット（次のカットが下限から始まるように）
+            document.getElementById('cut-height').value = '0';
+            document.getElementById('cut-tilt-x').value = '0';
+            document.getElementById('cut-tilt-z').value = '0';
+            updateCutterPlane();
+            setStatus('CUT DONE');
+
+            // ★ カット直後はvolumeをリセット
+            // executeCut内でsealHolesしたジオメトリに対し
+            // calcVolumeがさらにsealHolesを実行するとダブルシールで誤差が出る
+            // ユーザーに明示的に再計算させることで正確な値を保証する
+            document.getElementById('result').textContent = '---';
+            toast('カット完了！▶ 体積計算ボタンで再計算してね');
+ 
+// --- カット後の形を新しい基準にする ---
+originalGeometries = targetMeshes.map(m => m.geometry.clone());
+
+        // カット後に自動で座標正規化（カメラ位置維持）
+        setTimeout(() => autoResetRollKeepCamera(), 0);
+
+        }
+
+        // ─────────────────────────────────────────────
+        // Undo helpers
+        // ─────────────────────────────────────────────
+        function pushHistory() {
+            const snap = targetMeshes.map(m => m.geometry.clone());
+            history.push(snap);
+            if (history.length > HISTORY_MAX) history.shift();
+            updateUndoBtn();
+        }
+
+        function undo() {
+            if (history.length === 0) { toast('これ以上戻れないよ', true); return; }
+            const snap = history.pop();
+            snap.forEach((geom, i) => {
+                if (!targetMeshes[i]) return;
+                targetMeshes[i].geometry.dispose();
+                targetMeshes[i].geometry = geom;
+            });
+            updateUndoBtn();
+            updateVertCount();
+            clearWireframe(); // undoしたらエッジ表示をリセット
+            setStatus('UNDO');
+            toast(`元に戻したよ（残り ${history.length} 回）`);
+        }
+
+        function updateUndoBtn() {
+            const btn = document.getElementById('undoBtn');
+            btn.textContent = `↩ 元に戻す（${history.length}）`;
+            btn.style.opacity = history.length > 0 ? '1' : '0.4';
+        }
+
+        // ─────────────────────────────────────────────
+        // Toast / Status
+        // ─────────────────────────────────────────────
+        let toastTimer;
+        function toast(msg, isError = false) {
+            const el = document.getElementById('toast');
+            el.textContent = msg;
+            el.className = 'show' + (isError ? ' error' : '');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => { el.className = ''; }, 3000);
+        }
+        function setStatus(msg) { document.getElementById('status-text').textContent = msg; }
+        function updateVertCount() {
+            let total = 0;
+            targetMeshes.forEach(m => { total += m.geometry.attributes.position.count; });
+            document.getElementById('vert-count').textContent = total.toLocaleString() + ' verts';
+        }
+
+        // ─────────────────────────────────────────────
+        // Camera views
+        // ─────────────────────────────────────────────
+        let topViewAngle = 0; // 俯瞰90°回転カウンター
+
+        function setCam(type) {
+            if (targetMeshes.length === 0) return;
+            // NaN除外で正確なサイズを取得
+            let mnX=Infinity,mnY=Infinity,mnZ=Infinity,mxX=-Infinity,mxY=-Infinity,mxZ=-Infinity;
+            const _sv = new THREE.Vector3();
+            targetMeshes.forEach(m => {
+                const pos = m.geometry.attributes.position, mat = m.matrixWorld;
+                for (let i = 0; i < pos.count; i++) {
+                    _sv.fromBufferAttribute(pos, i);
+                    if (isNaN(_sv.x)||isNaN(_sv.y)||isNaN(_sv.z)) continue;
+                    _sv.applyMatrix4(mat);
+                    if(_sv.x<mnX)mnX=_sv.x; if(_sv.x>mxX)mxX=_sv.x;
+                    if(_sv.y<mnY)mnY=_sv.y; if(_sv.y>mxY)mxY=_sv.y;
+                    if(_sv.z<mnZ)mnZ=_sv.z; if(_sv.z>mxZ)mxZ=_sv.z;
+                }
+            });
+            if (!isFinite(mnX)) return;
+            const center = computeCentroid(targetMeshes);
+            const dist = Math.max(mxX-mnX, mxY-mnY, mxZ-mnZ) * 1.8;
+            controls.target.copy(center);
+            camera.up.set(0, 1, 0);
+            if (type === 'top') camera.position.set(center.x, center.y + dist, center.z + 0.001); // 真上（平面）
+            if (type === 'front') camera.position.set(center.x, center.y, center.z + dist);
+            if (type === 'right') camera.position.set(center.x + dist, center.y, center.z);
+            if (type === 'left') camera.position.set(center.x - dist, center.y, center.z);
+            if (type === 'back') camera.position.set(center.x, center.y, center.z - dist);
+            if (type === 'overview') {
+                // 押すたびに90°回転した斜め俯瞰
+                topViewAngle = (topViewAngle + 90) % 360;
+                const rad = THREE.MathUtils.degToRad(topViewAngle);
+                camera.position.set(
+                    center.x + Math.sin(rad) * dist,
+                    center.y + dist * 0.7,
+                    center.z + Math.cos(rad) * dist
+                );
+            }
+            controls.update();
+        }
+
+        // ─────────────────────────────────────────────
+        // 視点再調整 ＋ オブジェクト原点リセット
+        // XZ中心・Y底面 → ワールド(0,0,0)に移動
+        // ─────────────────────────────────────────────
+        function resetRoll() {
+
+            if (targetMeshes.length === 0) {
+                camera.up.set(0, 1, 0);
+                controls.update();
+                toast('視点を正立したよ ✓');
+                return;
+            }
+
+            // ── ★ transform（position/rotation/scale）を頂点に焼き付けてからリセット ──
+            // GLBはノードのscale情報を持ってくる。scale.set(1,1,1)する前に
+            // matrixWorldを頂点に焼き付けないと、スケールが消えて元サイズに戻る（F②/G④バグ）
+            modelGroup.updateMatrixWorld(true);
+            targetMeshes.forEach(m => {
+                m.updateMatrixWorld(true);
+                const mat = m.matrixWorld.clone();
+                // matrixWorldを分解してscale/rotation/positionが単位状態か確認
+                const _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3();
+                mat.decompose(_p, _q, _s);
+                const needsBake = Math.abs(_s.x-1)>1e-5 || Math.abs(_s.y-1)>1e-5 || Math.abs(_s.z-1)>1e-5
+                               || _p.lengthSq()>1e-8
+                               || Math.abs(_q.w-1)>1e-5;
+                if (needsBake) {
+                    const pos = m.geometry.attributes.position;
+                    const _bv = new THREE.Vector3();
+                    for (let i = 0; i < pos.count; i++) {
+                        _bv.fromBufferAttribute(pos, i);
+                        if (isNaN(_bv.x)) continue;
+                        _bv.applyMatrix4(mat);
+                        pos.setXYZ(i, _bv.x, _bv.y, _bv.z);
+                    }
+                    pos.needsUpdate = true;
+                    m.geometry.computeBoundingBox();
+                    m.geometry.computeBoundingSphere();
+                }
+                m.position.set(0, 0, 0);
+                m.rotation.set(0, 0, 0);
+                m.scale.set(1, 1, 1);
+            });
+            modelGroup.position.set(0, 0, 0);
+            modelGroup.rotation.set(0, 0, 0);
+            modelGroup.scale.set(1, 1, 1);
+            modelGroup.updateMatrixWorld(true);
+
+            // ① NaN除外でBBoxを取得してオフセット計算
+            let rMinX=Infinity,rMinY=Infinity,rMinZ=Infinity,rMaxX=-Infinity,rMaxY=-Infinity,rMaxZ=-Infinity;
+            const _rv = new THREE.Vector3();
+            targetMeshes.forEach(m => {
+                const pos = m.geometry.attributes.position;
+                for (let i = 0; i < pos.count; i++) {
+                    _rv.fromBufferAttribute(pos, i);
+                    if (isNaN(_rv.x)||isNaN(_rv.y)||isNaN(_rv.z)) continue;
+                    if(_rv.x<rMinX)rMinX=_rv.x; if(_rv.x>rMaxX)rMaxX=_rv.x;
+                    if(_rv.y<rMinY)rMinY=_rv.y; if(_rv.y>rMaxY)rMaxY=_rv.y;
+                    if(_rv.z<rMinZ)rMinZ=_rv.z; if(_rv.z>rMaxZ)rMaxZ=_rv.z;
+                }
+            });
+            if (!isFinite(rMinX)) return;
+            const centerX = (rMinX+rMaxX)/2, centerZ = (rMinZ+rMaxZ)/2;
+
+            // すでに底面Y=0・XZ中心なら頂点移動をスキップ（連打対策）
+            const alreadyAtOrigin =
+                Math.abs(centerX) < 1e-4 &&
+                Math.abs(rMinY) < 1e-4 &&
+                Math.abs(centerZ) < 1e-4;
+
+            if (!alreadyAtOrigin) {
+                const offset = new THREE.Vector3(-centerX, -rMinY, -centerZ);
+
+                // ② 頂点を直接オフセット（transform は単位行列なのでapplyMatrix4不要）
+                targetMeshes.forEach(m => {
+                    const pos = m.geometry.attributes.position;
+                    const v = new THREE.Vector3();
+                    for (let i = 0; i < pos.count; i++) {
+                        v.fromBufferAttribute(pos, i);
+                        if (isNaN(v.x)) continue;
+                        v.add(offset);
+                        pos.setXYZ(i, v.x, v.y, v.z);
+                    }
+                    pos.needsUpdate = true;
+                    m.geometry.computeVertexNormals();
+                    // ② バウンディングスフィアを強制更新
+                    // 更新しないと古い境界球でフラスタムカリングされて一定角度で消える
+                    m.geometry.computeBoundingBox();
+                    m.geometry.computeBoundingSphere();
+                });
+            }
+
+            // ③ 焼き付け後のジオメトリを新しい基準として保存（連打しても同じ位置から計算）
+            originalGeometries = targetMeshes.map(m => m.geometry.clone());
+            modelGroup.updateMatrixWorld(true);
+
+            // ④ カメラも整える
+            camera.up.set(0, 1, 0);
+            fit();
+
+            // ⑤ 頂点焼き付け後の新しいBBoxでカット平面を再初期化
+            //    （resetRoll後はオブジェクトが移動しているため再計算が必要）
+            modelGroup.updateMatrixWorld(true);
+            const newBox = new THREE.Box3().setFromObject(modelGroup);
+            if (cuttingPlane && !newBox.isEmpty()) {
+                const newSize = newBox.getSize(new THREE.Vector3());
+                cuttingPlane.scale.set(newSize.length() * 2, newSize.length() * 2, 1);
+                // スライダーを0にリセットしてから位置を再計算
+                document.getElementById('cut-height').value = '0';
+                document.getElementById('cut-tilt-x').value = '0';
+                document.getElementById('cut-tilt-z').value = '0';
+                updateCutterPlane();
+            }
+
+            document.getElementById('scale-hint').style.display = 'none';
+            toast('原点リセット完了！▶ 体積計算ボタンで計算してね ✓');
+
+            // ---- volume表示リセット（視点再調整で座標が変わるため再計算を促す） ----
+            // 正しいワークフロー：ロード→視点再調整→編集→視点再調整→体積計算
+            document.getElementById('result').textContent = '---';
+
+            // ---- 閉鎖表示（ワイヤー＆面）を削除 ----
+            const cap = scene.getObjectByName('visualCap');
+            if (cap) scene.remove(cap);
+
+            const sealWire = scene.getObjectByName('sealWireframe');
+            if (sealWire) scene.remove(sealWire);
+
+            // ---- 体積計算時の緑ワイヤーフレームも削除 ----
+            clearWireframe();
+
+        }
+
+        // ─────────────────────────────────────────────
+        // 距離測定
+        // ─────────────────────────────────────────────
+        function clearMeasure() {
+            measurePoints = [];
+            measureMarkers.forEach(m => scene.remove(m));
+            measureMarkers = [];
+            if (measureLine) { scene.remove(measureLine); measureLine = null; }
+            document.getElementById('dist-raw').textContent = '0.000';
+        }
+
+        // ─────────────────────────────────────────────
+        // setupMesh
+        // ─────────────────────────────────────────────
+        function setupMesh(c) {
+            const hasTex = c.material && (
+                (c.material.map) ||
+                (Array.isArray(c.material) && c.material.some(m => m && m.map))
+            );
+            if (!hasTex) {
+                c.material = new THREE.MeshStandardMaterial({ color: 0xb0c4b0, roughness: 0.8, metalness: 0.0, side: THREE.DoubleSide });
+            } else {
+                const mats = Array.isArray(c.material) ? c.material : [c.material];
+                mats.forEach(m => { if (m) { m.side = THREE.DoubleSide; m.needsUpdate = true; } });
+            }
+            c.geometry = c.geometry.toNonIndexed();
+            c.geometry.computeVertexNormals();
+
+            // ── 読み込み時にスケール・回転・位置を頂点に即焼き付け ──
+            // GLB/FBXはノードのtransformを持ってくる場合がある。
+            // ここで焼き付けることで以降の操作でtransformがズレない。
+            c.updateMatrixWorld(true);
+            const mat = c.matrixWorld.clone();
+            const _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3();
+            mat.decompose(_p, _q, _s);
+            const needsBake = Math.abs(_s.x-1)>1e-5 || Math.abs(_s.y-1)>1e-5 || Math.abs(_s.z-1)>1e-5
+                           || _p.lengthSq()>1e-8 || Math.abs(_q.w-1)>1e-5;
+            if (needsBake) {
+                const pos = c.geometry.attributes.position;
+                const bv = new THREE.Vector3();
+                for (let i = 0; i < pos.count; i++) {
+                    bv.fromBufferAttribute(pos, i);
+                    if (isNaN(bv.x)) continue;
+                    bv.applyMatrix4(mat);
+                    pos.setXYZ(i, bv.x, bv.y, bv.z);
+                }
+                pos.needsUpdate = true;
+                c.geometry.computeVertexNormals();
+                c.geometry.computeBoundingBox();
+                c.geometry.computeBoundingSphere();
+                c.position.set(0,0,0); c.rotation.set(0,0,0); c.scale.set(1,1,1);
+            }
+        }
+
+        // ─────────────────────────────────────────────
+        // Loading
+        // ─────────────────────────────────────────────
+        function load(file) {
+            const url = URL.createObjectURL(file);
+            const name = file.name.toLowerCase();
+
+            while (modelGroup.children.length > 0) modelGroup.remove(modelGroup.children[0]);
+            targetMeshes = []; originalGeometries = []; history = [];
+            updateUndoBtn(); clearMeasure(); setMode('none');
+            clearWireframe();
+            setStatus('LOADING...');
+
+            const setup = (obj) => {
+                obj.traverse(c => {
+                    if (!c.isMesh) return;
+                    setupMesh(c);
+                    targetMeshes.push(c);
+                    originalGeometries.push(c.geometry.clone());
+                });
+                modelGroup.add(obj);
+
+                if (targetMeshes.length === 0) {
+                    toast('メッシュが見つかりませんでした', true);
+                    setStatus('ERROR: NO MESH');
+                    return;
+                }
+                fit();
+                fileLoaded = true; // ① ロード完了フラグON
+                setStatus('LOADED');
+                updateVertCount();
+                autoResetRoll(); // 読み込み直後に座標を正規化
+                toast(`読み込み完了: ${targetMeshes.length} メッシュ`);
+                dropOverlay.classList.remove('active');
+
+                
+                URL.revokeObjectURL(url);
+            };
+
+            const onError = (err) => {
+                toast('読み込みエラー: ' + (err?.message || 'unknown'), true);
+                setStatus('LOAD ERROR');
+                console.error(err);
+                URL.revokeObjectURL(url);
+            };
+
+            if (name.endsWith('.fbx')) {
+                new FBXLoader().load(url, setup, undefined, onError);
+            } else {
+                new GLTFLoader().load(url, g => setup(g.scene), undefined, onError);
+            }
+        }
+
+        // ─────────────────────────────────────────────
+        // 重心計算（NaN除外・ワールド座標対応）
+        // ─────────────────────────────────────────────
+        function computeCentroid(meshes) {
+            const sum = new THREE.Vector3();
+            const v = new THREE.Vector3();
+            let count = 0;
+            meshes.forEach(m => {
+                const pos = m.geometry.attributes.position;
+                const mat = m.matrixWorld;
+                for (let i = 0; i < pos.count; i++) {
+                    v.fromBufferAttribute(pos, i);
+                    if (isNaN(v.x) || isNaN(v.y) || isNaN(v.z)) continue;
+                    v.applyMatrix4(mat);
+                    sum.add(v);
+                    count++;
+                }
+            });
+            return count > 0 ? sum.divideScalar(count) : new THREE.Vector3();
+        }
+
+        function fit() {
+            // NaN除外で正確なBBoxを取得
+            let minX = Infinity, minY = Infinity, minZ = Infinity;
+            let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+            const _v = new THREE.Vector3();
+            targetMeshes.forEach(m => {
+                m.updateMatrixWorld(true);
+                const pos = m.geometry.attributes.position;
+                const mat = m.matrixWorld;
+                for (let i = 0; i < pos.count; i++) {
+                    _v.fromBufferAttribute(pos, i);
+                    if (isNaN(_v.x) || isNaN(_v.y) || isNaN(_v.z)) continue;
+                    _v.applyMatrix4(mat);
+                    if (_v.x < minX) minX = _v.x; if (_v.x > maxX) maxX = _v.x;
+                    if (_v.y < minY) minY = _v.y; if (_v.y > maxY) maxY = _v.y;
+                    if (_v.z < minZ) minZ = _v.z; if (_v.z > maxZ) maxZ = _v.z;
+                }
+            });
+            if (!isFinite(minX)) return;
+
+            const sX = maxX - minX, sY = maxY - minY, sZ = maxZ - minZ;
+            const d = Math.max(sX, sY, sZ) * 1.6;
+
+            // ② BBox中心をターゲットに使用（頂点密度バイアスを排除）
+            // computeCentroid()は密度依存で軸がズレるためBBox中心が安全
+            const c = new THREE.Vector3((minX+maxX)/2, (minY+maxY)/2, (minZ+maxZ)/2);
+
+            const objSize = Math.max(sX, sY, sZ);
+
+            // near は 0.01 固定（最初のロード時と同じ値をキープ）
+            // 変えると深度バッファ精度が崩れるのでいじらない
+            // far だけオブジェクトサイズに追従させて見切れを防ぐ
+            camera.near = 0.01;
+            camera.far  = Math.max(objSize * 1000, 100000);
+            camera.updateProjectionMatrix();
+
+            camera.up.set(0, 1, 0);
+            camera.position.set(c.x, c.y + d * 0.6, c.z + d);
+            controls.target.copy(c);
+            // ② minDistance=0だとカメラがtarget点を突き抜けて消失する
+            // オブジェクトサイズの0.2%を最小距離に設定（50mなら10cm）
+            controls.minDistance = objSize * 0.002;
+            controls.maxDistance = Infinity;
+            controls.update();
+
+            // カット平面初期化・スケール更新
+            if (!cuttingPlane) {
+                const cpGeo = new THREE.PlaneGeometry(1, 1);
+                const cpMat = new THREE.MeshBasicMaterial({ color: 0x00c8ff, transparent: true, opacity: 0.25, side: THREE.DoubleSide, depthWrite: false });
+                cuttingPlane = new THREE.Mesh(cpGeo, cpMat);
+                cuttingPlane.visible = false;
+                scene.add(cuttingPlane);
+            }
+            // b.getSize() を使わずNaN除外済みサイズで設定
+            const diagSize = Math.sqrt(sX*sX + sY*sY + sZ*sZ);
+            cuttingPlane.scale.set(diagSize * 2, diagSize * 2, 1);
+            updateCutterPlane();
+        }
+
+        // ─────────────────────────────────────────────
+        // メッシュ簡略化
+        // ─────────────────────────────────────────────
+        function simplifyMeshes() {
+            if (targetMeshes.length === 0) { toast('先にファイルを読み込んでね', true); return; }
+            const pct = parseInt(document.getElementById('simplifySlider').value) / 100;
+            pushHistory();
+            setStatus('SIMPLIFYING...');
+            let totalBefore = 0, totalAfter = 0;
+
+            // モデル全体のバウンディングボックスからvoxelサイズを決定
+            const worldBox = new THREE.Box3().setFromObject(modelGroup);
+            const worldSize = worldBox.getSize(new THREE.Vector3());
+            const maxDim = Math.max(worldSize.x, worldSize.y, worldSize.z);
+            // pct=0%→0.001m、pct=95%→maxDim*0.08 程度にスケール
+            const tolerance = 0.001 + pct * maxDim * 0.02;
+
+            targetMeshes.forEach(m => {
+                const geom = m.geometry;
+                totalBefore += geom.attributes.position.count;
+
+                // ① ボクセルグリッドマージ：toleranceの範囲内の頂点を1点に集約
+                //    → 表面形状を保ちながら均一に間引く（穴が空かない）
+                const merged = BufferGeometryUtils.mergeVertices(geom, tolerance);
+                merged.computeVertexNormals();
+
+                // ② NonIndexed化（体積計算・NaN消去のため）
+                const result = merged.toNonIndexed();
+                result.computeVertexNormals();
+
+                // ③ 縮退面除去
+                const cleaned = removeDegenerate(result);
+                m.geometry.dispose();
+                m.geometry = cleaned;
+                totalAfter += cleaned.attributes.position.count;
+            });
+
+            const ratio = ((1 - totalAfter / totalBefore) * 100).toFixed(1);
+            setStatus('SIMPLIFIED');
+            updateVertCount();
+            toast(`簡略化完了: ${totalBefore.toLocaleString()} → ${totalAfter.toLocaleString()} verts (${ratio}%削減)`);
+        }
+
+        function removeDegenerate(geom) {
+            const pos = geom.attributes.position;
+            const verts = [];
+            const v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), v3 = new THREE.Vector3();
+            const e1 = new THREE.Vector3(), e2 = new THREE.Vector3();
+            for (let i = 0; i < pos.count; i += 3) {
+                v1.fromBufferAttribute(pos, i);
+                v2.fromBufferAttribute(pos, i + 1);
+                v3.fromBufferAttribute(pos, i + 2);
+                if (isNaN(v1.x) || isNaN(v2.x) || isNaN(v3.x)) continue;
+                e1.subVectors(v2, v1); e2.subVectors(v3, v1);
+                if (e1.cross(e2).length() * 0.5 < 1e-10) continue;
+                verts.push(v1.x, v1.y, v1.z, v2.x, v2.y, v2.z, v3.x, v3.y, v3.z);
+            }
+            const out = new THREE.BufferGeometry();
+            out.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+            out.computeVertexNormals();
+            return out;
+        }
+
+        // ─────────────────────────────────────────────
+        // GLB書き出し
+        // ─────────────────────────────────────────────
+        function exportGLB() {
+            if (targetMeshes.length === 0) { toast('先にファイルを読み込んでね', true); return; }
+            setStatus('EXPORTING...');
+            const exporter = new GLTFExporter();
+            const exportGroup = new THREE.Group();
+
+            targetMeshes.forEach(m => {
+                const pos = m.geometry.attributes.position;
+                const hasNorm = !!m.geometry.attributes.normal;
+                const validV = [], validN = [];
+                for (let i = 0; i + 2 < pos.count; i += 3) {
+                    const x1 = pos.getX(i), y1 = pos.getY(i), z1 = pos.getZ(i);
+                    const x2 = pos.getX(i + 1), y2 = pos.getY(i + 1), z2 = pos.getZ(i + 1);
+                    const x3 = pos.getX(i + 2), y3 = pos.getY(i + 2), z3 = pos.getZ(i + 2);
+                    if (isNaN(x1) || isNaN(x2) || isNaN(x3)) continue;
+                    validV.push(x1, y1, z1, x2, y2, z2, x3, y3, z3);
+                    if (hasNorm) {
+                        const n = m.geometry.attributes.normal;
+                        validN.push(n.getX(i), n.getY(i), n.getZ(i), n.getX(i + 1), n.getY(i + 1), n.getZ(i + 1), n.getX(i + 2), n.getY(i + 2), n.getZ(i + 2));
+                    }
+                }
+                if (validV.length === 0) return;
+                const g = new THREE.BufferGeometry();
+                g.setAttribute('position', new THREE.Float32BufferAttribute(validV, 3));
+                if (validN.length > 0) g.setAttribute('normal', new THREE.Float32BufferAttribute(validN, 3));
+                else g.computeVertexNormals();
+                const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: 0x999999, roughness: 0.8, metalness: 0 }));
+                mesh.applyMatrix4(m.matrixWorld);
+                exportGroup.add(mesh);
+            });
+
+            if (exportGroup.children.length === 0) { toast('書き出し可能なメッシュがないよ', true); setStatus('EXPORT ERROR'); return; }
+
+            exporter.parse(exportGroup,
+                (result) => {
+                    const blob = new Blob([result], { type: 'application/octet-stream' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `Volume_${new Date().toISOString().slice(0, 10)}_${Date.now()}.glb`;
+                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                    setTimeout(() => URL.revokeObjectURL(url), 2000);
+                    setStatus('EXPORTED'); toast('GLB保存完了！');
+                },
+                (err) => { toast('GLB書き出しエラー: ' + err, true); setStatus('EXPORT ERROR'); console.error(err); },
+                { binary: true }
+            );
+        }
+
+        // ─────────────────────────────────────────────
+        // 体積計算（ダイバージェンス定理）
+        // ワールド座標に変換してからsealHoles→体積計算
+        // ─────────────────────────────────────────────
+        function calcVolume() {
+            if (targetMeshes.length === 0) { toast('先にファイルを読み込んでね', true); return; }
+            setStatus('COMPUTING...');
+
+            // matrixWorldを最新化
+            modelGroup.updateMatrixWorld(true);
+
+            // 古いビジュアルキャップを消す
+            const oldCap = scene.getObjectByName('visualCap');
+            if (oldCap) scene.remove(oldCap);
+            const oldWire = scene.getObjectByName('sealWireframe');
+            if (oldWire) scene.remove(oldWire);
+
+            // ★ ワールド座標に変換したジオメトリを作ってsealHoles
+            const worldGeos = [];
+            targetMeshes.forEach(m => {
+                const p = m.geometry.attributes.position;
+                const mat = m.matrixWorld;
+                const verts = [];
+                for (let i = 0; i + 2 < p.count; i += 3) {
+                    const v1 = new THREE.Vector3().fromBufferAttribute(p, i).applyMatrix4(mat);
+                    const v2 = new THREE.Vector3().fromBufferAttribute(p, i + 1).applyMatrix4(mat);
+                    const v3 = new THREE.Vector3().fromBufferAttribute(p, i + 2).applyMatrix4(mat);
+                    if (isNaN(v1.x) || isNaN(v2.x) || isNaN(v3.x)) continue;
+                    verts.push(v1.x, v1.y, v1.z, v2.x, v2.y, v2.z, v3.x, v3.y, v3.z);
+                }
+                if (verts.length === 0) return;
+                const wGeo = new THREE.BufferGeometry();
+                wGeo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+                worldGeos.push(wGeo);
+            });
+
+            if (worldGeos.length === 0) { toast('有効な頂点がないよ', true); setStatus('READY'); return; }
+
+            // 全メッシュをマージしてからseal
+            let mergedGeo;
+            try {
+                mergedGeo = worldGeos.length === 1
+                    ? worldGeos[0]
+                    : BufferGeometryUtils.mergeGeometries(worldGeos);
+            } catch (e) {
+                mergedGeo = worldGeos[0];
+            }
+
+            let sealedGeo;
+            try {
+                sealedGeo = sealHoles(mergedGeo);
+            } catch (e) {
+                console.warn('sealHoles failed:', e);
+                sealedGeo = mergedGeo;
+            }
+
+            // 体積計算（ワールド座標済みなのでmatrixWorld不要）
+            let vol = 0;
+            const p = sealedGeo.attributes.position;
+            const v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), v3 = new THREE.Vector3();
+            for (let i = 0; i + 2 < p.count; i += 3) {
+                v1.fromBufferAttribute(p, i);
+                v2.fromBufferAttribute(p, i + 1);
+                v3.fromBufferAttribute(p, i + 2);
+                if (isNaN(v1.x) || isNaN(v2.x) || isNaN(v3.x)) continue;
+                vol += v1.dot(v2.clone().cross(v3)) / 6.0;
+            }
+
+            const result = Math.abs(vol);
+            // 小数点以下3桁で切り捨て（0.001m³単位：現場精度として十分）
+            const truncated = Math.floor(result * 1000) / 1000;
+            document.getElementById('result').textContent = truncated.toFixed(3);
+            setStatus('READY');
+            toast(`体積: ${truncated.toFixed(3)} m³`);
+        }
+
+
+
+
+
+        // ─────────────────────────────────────────────
+        // 自動視点再調整（サイレント版）
+        // カット・消去・ロード後に自動で呼ぶ。トースト通知なし。
+        // ─────────────────────────────────────────────
+        function autoResetRoll() {
+            if (targetMeshes.length === 0) return;
+
+            // transform を頂点に焼き付け
+            modelGroup.updateMatrixWorld(true);
+            targetMeshes.forEach(m => {
+                m.updateMatrixWorld(true);
+                const mat = m.matrixWorld.clone();
+                const _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3();
+                mat.decompose(_p, _q, _s);
+                const needsBake = Math.abs(_s.x-1)>1e-5 || Math.abs(_s.y-1)>1e-5 || Math.abs(_s.z-1)>1e-5
+                               || _p.lengthSq()>1e-8
+                               || Math.abs(_q.w-1)>1e-5;
+                if (needsBake) {
+                    const pos = m.geometry.attributes.position;
+                    const _bv = new THREE.Vector3();
+                    for (let i = 0; i < pos.count; i++) {
+                        _bv.fromBufferAttribute(pos, i);
+                        if (isNaN(_bv.x)) continue;
+                        _bv.applyMatrix4(mat);
+                        pos.setXYZ(i, _bv.x, _bv.y, _bv.z);
+                    }
+                    pos.needsUpdate = true;
+                    m.geometry.computeBoundingBox();
+                    m.geometry.computeBoundingSphere();
+                }
+                m.position.set(0, 0, 0);
+                m.rotation.set(0, 0, 0);
+                m.scale.set(1, 1, 1);
+            });
+            modelGroup.position.set(0, 0, 0);
+            modelGroup.rotation.set(0, 0, 0);
+            modelGroup.scale.set(1, 1, 1);
+            modelGroup.updateMatrixWorld(true);
+
+            // NaN除外でBBox取得・オフセット計算
+            let rMinX=Infinity,rMinY=Infinity,rMinZ=Infinity,rMaxX=-Infinity,rMaxY=-Infinity,rMaxZ=-Infinity;
+            const _rv = new THREE.Vector3();
+            targetMeshes.forEach(m => {
+                const pos = m.geometry.attributes.position;
+                for (let i = 0; i < pos.count; i++) {
+                    _rv.fromBufferAttribute(pos, i);
+                    if (isNaN(_rv.x)||isNaN(_rv.y)||isNaN(_rv.z)) continue;
+                    if(_rv.x<rMinX)rMinX=_rv.x; if(_rv.x>rMaxX)rMaxX=_rv.x;
+                    if(_rv.y<rMinY)rMinY=_rv.y; if(_rv.y>rMaxY)rMaxY=_rv.y;
+                    if(_rv.z<rMinZ)rMinZ=_rv.z; if(_rv.z>rMaxZ)rMaxZ=_rv.z;
+                }
+            });
+            if (!isFinite(rMinX)) return;
+
+            const centerX = (rMinX+rMaxX)/2, centerZ = (rMinZ+rMaxZ)/2;
+            const alreadyAtOrigin = Math.abs(centerX)<1e-4 && Math.abs(rMinY)<1e-4 && Math.abs(centerZ)<1e-4;
+
+            if (!alreadyAtOrigin) {
+                const offset = new THREE.Vector3(-centerX, -rMinY, -centerZ);
+                targetMeshes.forEach(m => {
+                    const pos = m.geometry.attributes.position;
+                    const v = new THREE.Vector3();
+                    for (let i = 0; i < pos.count; i++) {
+                        v.fromBufferAttribute(pos, i);
+                        if (isNaN(v.x)) continue;
+                        v.add(offset);
+                        pos.setXYZ(i, v.x, v.y, v.z);
+                    }
+                    pos.needsUpdate = true;
+                    m.geometry.computeVertexNormals();
+                    m.geometry.computeBoundingBox();
+                    m.geometry.computeBoundingSphere();
+                });
+            }
+
+            originalGeometries = targetMeshes.map(m => m.geometry.clone());
+            modelGroup.updateMatrixWorld(true);
+            camera.up.set(0, 1, 0);
+            fit();
+
+            // カット平面も再初期化
+            const newBox = new THREE.Box3().setFromObject(modelGroup);
+            if (cuttingPlane && !newBox.isEmpty()) {
+                const newSize = newBox.getSize(new THREE.Vector3());
+                cuttingPlane.scale.set(newSize.length() * 2, newSize.length() * 2, 1);
+                document.getElementById('cut-height').value = '0';
+                document.getElementById('cut-tilt-x').value = '0';
+                document.getElementById('cut-tilt-z').value = '0';
+                updateCutterPlane();
+            }
+
+            // 体積表示・ビジュアルをリセット
+            document.getElementById('result').textContent = '---';
+            const cap = scene.getObjectByName('visualCap');
+            if (cap) scene.remove(cap);
+            const sealWire = scene.getObjectByName('sealWireframe');
+            if (sealWire) scene.remove(sealWire);
+            clearWireframe();
+        }
+
+        // ─────────────────────────────────────────────
+        // 自動視点再調整（カメラ位置を変えないサイレント版）
+        // ラッソ消去後など、平面視点を維持したい時に使う
+        // ─────────────────────────────────────────────
+        function autoResetRollKeepCamera() {
+            if (targetMeshes.length === 0) return;
+            modelGroup.updateMatrixWorld(true);
+            targetMeshes.forEach(m => {
+                m.updateMatrixWorld(true);
+                const mat = m.matrixWorld.clone();
+                const _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3();
+                mat.decompose(_p, _q, _s);
+                const needsBake = Math.abs(_s.x-1)>1e-5 || Math.abs(_s.y-1)>1e-5 || Math.abs(_s.z-1)>1e-5
+                               || _p.lengthSq()>1e-8 || Math.abs(_q.w-1)>1e-5;
+                if (needsBake) {
+                    const pos = m.geometry.attributes.position;
+                    const _bv = new THREE.Vector3();
+                    for (let i = 0; i < pos.count; i++) {
+                        _bv.fromBufferAttribute(pos, i);
+                        if (isNaN(_bv.x)) continue;
+                        _bv.applyMatrix4(mat);
+                        pos.setXYZ(i, _bv.x, _bv.y, _bv.z);
+                    }
+                    pos.needsUpdate = true;
+                    m.geometry.computeBoundingBox();
+                    m.geometry.computeBoundingSphere();
+                }
+                m.position.set(0,0,0); m.rotation.set(0,0,0); m.scale.set(1,1,1);
+            });
+            modelGroup.position.set(0,0,0); modelGroup.rotation.set(0,0,0); modelGroup.scale.set(1,1,1);
+            modelGroup.updateMatrixWorld(true);
+
+            let rMinX=Infinity,rMinY=Infinity,rMinZ=Infinity,rMaxX=-Infinity,rMaxZ=-Infinity;
+            const _rv = new THREE.Vector3();
+            targetMeshes.forEach(m => {
+                const pos = m.geometry.attributes.position;
+                for (let i = 0; i < pos.count; i++) {
+                    _rv.fromBufferAttribute(pos, i);
+                    if (isNaN(_rv.x)||isNaN(_rv.y)||isNaN(_rv.z)) continue;
+                    if(_rv.x<rMinX)rMinX=_rv.x; if(_rv.x>rMaxX)rMaxX=_rv.x;
+                    if(_rv.y<rMinY)rMinY=_rv.y;
+                    if(_rv.z<rMinZ)rMinZ=_rv.z; if(_rv.z>rMaxZ)rMaxZ=_rv.z;
+                }
+            });
+            if (!isFinite(rMinX)) return;
+
+            const centerX=(rMinX+rMaxX)/2, centerZ=(rMinZ+rMaxZ)/2;
+            const alreadyAtOrigin = Math.abs(centerX)<1e-4 && Math.abs(rMinY)<1e-4 && Math.abs(centerZ)<1e-4;
+            if (!alreadyAtOrigin) {
+                const offset = new THREE.Vector3(-centerX, -rMinY, -centerZ);
+                targetMeshes.forEach(m => {
+                    const pos = m.geometry.attributes.position;
+                    const v = new THREE.Vector3();
+                    for (let i = 0; i < pos.count; i++) {
+                        v.fromBufferAttribute(pos, i);
+                        if (isNaN(v.x)) continue;
+                        v.add(offset);
+                        pos.setXYZ(i, v.x, v.y, v.z);
+                    }
+                    pos.needsUpdate = true;
+                    m.geometry.computeVertexNormals();
+                    m.geometry.computeBoundingBox();
+                    m.geometry.computeBoundingSphere();
+                });
+            }
+            originalGeometries = targetMeshes.map(m => m.geometry.clone());
+            modelGroup.updateMatrixWorld(true);
+            // ★ カメラは動かさない
+            document.getElementById('result').textContent = '---';
+            const cap = scene.getObjectByName('visualCap');
+            if (cap) scene.remove(cap);
+            const sealWire = scene.getObjectByName('sealWireframe');
+            if (sealWire) scene.remove(sealWire);
+            clearWireframe();
+        }
+
+        // ─────────────────────────────────────────────
+        // ラッソ（範囲外消去）ロジック
+        // ─────────────────────────────────────────────
+        let lassoPoints = [];       // 描画中のスクリーン座標配列
+        let lassoDrawing = false;   // ドラッグ中フラグ
+        let lassoFinished = false;  // 描画完了（閉じた）フラグ
+
+        function getLassoCanvas() { return document.getElementById('lasso-canvas'); }
+        function getLassoCtx() { return getLassoCanvas().getContext('2d'); }
+
+        // ラッソ状態を完全リセット（Canvas含む）
+        function clearLasso() {
+            lassoPoints = [];
+            lassoDrawing = false;
+            lassoFinished = false;
+            const lc = getLassoCanvas();
+            if (lc) {
+                const ctx = lc.getContext('2d');
+                ctx.clearRect(0, 0, lc.width, lc.height);
+                lc.style.display = 'none';
+            }
+        }
+
+        // ラッソラインを Canvas に描画
+        function drawLasso() {
+            const lc = getLassoCanvas();
+            const ctx = getLassoCtx();
+            ctx.clearRect(0, 0, lc.width, lc.height);
+            if (lassoPoints.length < 2) return;
+
+            ctx.beginPath();
+            ctx.moveTo(lassoPoints[0].x, lassoPoints[0].y);
+            for (let i = 1; i < lassoPoints.length; i++) {
+                ctx.lineTo(lassoPoints[i].x, lassoPoints[i].y);
+            }
+            if (lassoFinished) ctx.closePath();
+
+            // 外側（消去領域）を極薄い赤で塗る（見えすぎない程度に）
+            if (lassoFinished) {
+                ctx.save();
+                ctx.fillStyle = 'rgba(255, 80, 30, 0.07)';
+                ctx.fillRect(0, 0, lc.width, lc.height);
+                ctx.globalCompositeOperation = 'destination-out';
+                ctx.beginPath();
+                ctx.moveTo(lassoPoints[0].x, lassoPoints[0].y);
+                for (let i = 1; i < lassoPoints.length; i++) ctx.lineTo(lassoPoints[i].x, lassoPoints[i].y);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // ライン本体
+            ctx.beginPath();
+            ctx.moveTo(lassoPoints[0].x, lassoPoints[0].y);
+            for (let i = 1; i < lassoPoints.length; i++) ctx.lineTo(lassoPoints[i].x, lassoPoints[i].y);
+            if (lassoFinished) ctx.closePath();
+            ctx.strokeStyle = 'rgba(255, 107, 43, 0.9)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash(lassoFinished ? [] : [6, 3]);
+            ctx.stroke();
+
+            // 始点マーカー
+            if (lassoPoints.length > 0) {
+                ctx.beginPath();
+                ctx.arc(lassoPoints[0].x, lassoPoints[0].y, 5, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 107, 43, 0.9)';
+                ctx.fill();
+            }
+        }
+
+        // Point-in-Polygon（Ray Casting法）
+        function pointInLasso(px, py, poly) {
+            let inside = false;
+            for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+                const xi = poly[i].x, yi = poly[i].y;
+                const xj = poly[j].x, yj = poly[j].y;
+                if (((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi)) {
+                    inside = !inside;
+                }
+            }
+            return inside;
+        }
+
+        // ラッソ消去実行
+        function executeLasso() {
+            if (lassoPoints.length < 3) { toast('もう少し大きく描いてね', true); return; }
+            if (targetMeshes.length === 0) { toast('先にファイルを読み込んでね', true); return; }
+
+            // シンプル確認ダイアログ
+            const ok = confirm(
+                '範囲外消去を実行してもいいですか？\n' +
+                '※ やってみてダメなら「元に戻す」を押してね！'
+            );
+            if (!ok) return;
+
+            // ── 消去実行 ──
+            pushHistory();
+            let changed = false;
+
+            targetMeshes.forEach(m => {
+                const p = m.geometry.attributes.position;
+                const mat = m.matrixWorld;
+                for (let i = 0; i < p.count; i += 3) {
+                    if (isNaN(p.getX(i))) continue;
+                    const cx = (p.getX(i) + p.getX(i+1) + p.getX(i+2)) / 3;
+                    const cy = (p.getY(i) + p.getY(i+1) + p.getY(i+2)) / 3;
+                    const cz = (p.getZ(i) + p.getZ(i+1) + p.getZ(i+2)) / 3;
+                    const v = new THREE.Vector3(cx, cy, cz).applyMatrix4(mat).project(camera);
+                    const sx = (v.x + 1) / 2 * innerWidth;
+                    const sy = (-v.y + 1) / 2 * innerHeight;
+
+                    if (!pointInLasso(sx, sy, lassoPoints)) {
+                        for (let j = 0; j < 3; j++) p.setXYZ(i + j, NaN, NaN, NaN);
+                        changed = true;
+                    }
+                }
+                p.needsUpdate = true;
+                m.geometry.computeBoundingBox();
+                m.geometry.computeBoundingSphere();
+            });
+
+            if (changed) {
+                originalGeometries = targetMeshes.map(m => m.geometry.clone());
+                clearWireframe();
+                document.getElementById('result').textContent = '---';
+                updateVertCount();
+                toast('消去完了！続けて描き直すか、ESCで終了してね');
+            } else {
+                toast('消去対象が見つからなかったわ', true);
+            }
+
+            // ラッソ線をリセットして描き直し待機（モードは終了しない）
+            clearLasso();
+            const lc = document.getElementById('lasso-canvas');
+            lc.width = innerWidth; lc.height = innerHeight;
+            lc.style.display = 'block';
+
+            // 座標正規化後に平面視点を再適用
+            if (changed) {
+                setTimeout(() => {
+                    autoResetRollKeepCamera();
+                    moveCameraTopForLasso();
+                }, 0);
+            }
+        }
+
+        // ラッソモード時にカメラを真上に移動
+        function moveCameraTopForLasso() {
+            if (targetMeshes.length === 0) return;
+            // NaN頂点を除外して正確なBBoxを計算
+            let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity, minZ=Infinity, maxZ=-Infinity;
+            const _v = new THREE.Vector3();
+            targetMeshes.forEach(m => {
+                const pos = m.geometry.attributes.position;
+                const mat = m.matrixWorld;
+                for (let i = 0; i < pos.count; i++) {
+                    _v.fromBufferAttribute(pos, i);
+                    if (isNaN(_v.x) || isNaN(_v.y) || isNaN(_v.z)) continue;
+                    _v.applyMatrix4(mat);
+                    if (_v.x < minX) minX = _v.x; if (_v.x > maxX) maxX = _v.x;
+                    if (_v.y < minY) minY = _v.y; if (_v.y > maxY) maxY = _v.y;
+                    if (_v.z < minZ) minZ = _v.z; if (_v.z > maxZ) maxZ = _v.z;
+                }
+            });
+            if (!isFinite(minX)) return;
+            const cx = (minX + maxX) / 2;
+            const cy = (minY + maxY) / 2;
+            const cz = (minZ + maxZ) / 2;
+            const dist = Math.max(maxX - minX, maxZ - minZ) * 1.8 + 1;
+
+            camera.position.set(cx, cy + dist, cz);
+            camera.up.set(0, 0, -1);
+            controls.target.set(cx, cy, cz);
+            controls.update();
+        }
+
+        // ─────────────────────────────────────────────
+        // Events
+        // ─────────────────────────────────────────────
+        const modeBadge = document.getElementById('mode-badge');
+
+        function setMode(newMode) {
+            // カッターモードの場合はcutter-uiの開閉で管理するため別扱い
+            const prevMode = mode;
+            mode = newMode;
+
+            // ラッソモード以外に切り替わった時はラッソ状態をすべてクリア
+            if (newMode !== 'lasso') clearLasso();
+
+            // ② ラッソモード終了時にcamera.upを正立に戻す（回転方向ズレ防止）
+            if (newMode !== 'lasso') {
+                camera.up.set(0, 1, 0);
+                controls.update();
+            }
+
+            controls.enabled = (mode === 'none');
+            document.body.classList.toggle('mode-select', mode !== 'none');
+            // モード切替時は select-box を即座に消してドラッグ状態もリセット
+            isSelecting = false;
+            document.getElementById('select-box').style.display = 'none';
+
+            // ── ボタン色リセット ──
+            ['singleDel', 'areaDel', 'lassoDelBtn', 'measureBtn', 'btn-toggle-cutter'].forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.classList.remove('active-warn', 'active-blue');
+            });
+
+            // ── ボタン色ON ──
+            if (mode === 'single') document.getElementById('singleDel').classList.add('active-warn');
+            if (mode === 'area') document.getElementById('areaDel').classList.add('active-warn');
+            if (mode === 'lasso') document.getElementById('lassoDelBtn').classList.add('active-warn');
+            if (mode === 'measure') document.getElementById('measureBtn').classList.add('active-warn');
+            if (mode === 'cutter') document.getElementById('btn-toggle-cutter').classList.add('active-blue');
+
+            // ── パネル開閉 ──
+            document.getElementById('measure-panel').style.display = (mode === 'measure') ? 'block' : 'none';
+            if (mode !== 'measure') clearMeasure();
+
+            document.getElementById('lasso-ui').style.display = (mode === 'lasso') ? 'block' : 'none';
+
+            // ラッソモード開始時：カメラを真上に移動して固定
+            if (mode === 'lasso' && targetMeshes.length > 0) {
+                moveCameraTopForLasso();
+                const lc = document.getElementById('lasso-canvas');
+                lc.width = innerWidth; lc.height = innerHeight;
+                lc.style.display = 'block';
+            } else if (newMode !== 'lasso') {
+                document.getElementById('lasso-canvas').style.display = 'none';
+            }
+
+            const cutterUi = document.getElementById('cutter-ui');
+            if (mode === 'cutter') {
+                cutterUi.style.display = 'block';
+                if (cuttingPlane) cuttingPlane.visible = true;
+                updateCutterPlane();
+            } else {
+                cutterUi.style.display = 'none';
+                if (cuttingPlane) cuttingPlane.visible = false;
+                if (belowHighlightMesh) { scene.remove(belowHighlightMesh); belowHighlightMesh = null; }
+            }
+
+            // ── モードバッジ ──
+            if (mode === 'single') {
+                modeBadge.innerHTML = '⊘ 個別指定消去モード  ―  ESC でキャンセル<br><span style="font-size:11px; opacity:0.7;">※ 面単位で削除されます</span>';
+                modeBadge.classList.add('active'); setStatus('MODE: SINGLE DEL');
+            } else if (mode === 'area') {
+                modeBadge.innerHTML = '⊘ 矩形範囲消去モード  ―  ドラッグで範囲選択  ／  ESC でキャンセル<br><span style="font-size:11px; opacity:0.7;">※ 面単位で削除されます</span>';
+                modeBadge.classList.add('active'); setStatus('MODE: AREA DEL');
+            } else if (mode === 'lasso') {
+                modeBadge.innerHTML = '✏ 範囲外消去モード  ―  ドラッグでラインを描く  ／  ESC でキャンセル<br><span style="font-size:11px; opacity:0.7;">※ 囲んだ外側のポリゴンが消えます</span>';
+                modeBadge.classList.add('active'); setStatus('MODE: LASSO DEL');
+            } else if (mode === 'measure') {
+                modeBadge.textContent = '📏 距離調整モード  ―  2点をクリック（左クリックのみ）  ／  ESC でキャンセル';
+                modeBadge.classList.add('active'); setStatus('MODE: MEASURE');
+            } else if (mode === 'cutter') {
+                modeBadge.innerHTML = '✂ 地盤面設定（下部カット）モード  ―  ESC でキャンセル<br><span style="font-size:11px; opacity:0.7;">指定した高さより下を切り落とし、断面を自動で閉じます</span>';
+                modeBadge.classList.add('active'); setStatus('MODE: CUTTER');
+            } else {
+                modeBadge.classList.remove('active'); setStatus('READY');
+            }
+        }
+
+        renderer.domElement.addEventListener('pointerdown', (e) => {
+            if (mode === 'none') return;
+            // 距離調整モードはマウス右クリックを画面移動に使うため左クリック／タッチのみ処理
+            if (mode === 'measure' && e.pointerType === 'mouse' && e.button !== 0) return;
+            if (mode !== 'measure') e.stopPropagation();
+            // Pointer Captureで pointermove/pointerup を確実にこの要素に届かせる（iOS必須）
+            activePointerId = e.pointerId;
+            try { renderer.domElement.setPointerCapture(e.pointerId); } catch(_) {}
+            const rect = renderer.domElement.getBoundingClientRect();
+            const mouse = new THREE.Vector2(
+                ((e.clientX - rect.left) / rect.width) * 2 - 1,
+                -((e.clientY - rect.top) / rect.height) * 2 + 1
+            );
+            raycaster.setFromCamera(mouse, camera);
+
+            if (mode === 'measure') {
+                const hits = raycaster.intersectObjects(targetMeshes, true);
+                if (hits.length > 0) {
+                    if (measurePoints.length >= 2) clearMeasure();
+                    const p = hits[0].point.clone();
+                    measurePoints.push(p);
+                    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), new THREE.MeshBasicMaterial({ color: 0xff9500 }));
+                    dot.position.copy(p); scene.add(dot); measureMarkers.push(dot);
+                    if (measurePoints.length === 2) {
+                        const dist = measurePoints[0].distanceTo(measurePoints[1]);
+                        document.getElementById('dist-raw').textContent = dist.toFixed(4);
+                        const geo = new THREE.BufferGeometry().setFromPoints(measurePoints);
+                        measureLine = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0xff9500, linewidth: 2 }));
+                        scene.add(measureLine);
+                        toast(`計測距離: ${dist.toFixed(4)} m`);
+                    }
+                }
+                return;
+            }
+
+            if (mode === 'single') {
+                const hits = raycaster.intersectObjects(targetMeshes, true);
+                if (hits.length > 0) {
+                    pushHistory();
+                    const p = hits[0].object.geometry.attributes.position;
+                    const fi = hits[0].faceIndex * 3;
+                    for (let i = 0; i < 3; i++) p.setXYZ(fi + i, NaN, NaN, NaN);
+                    p.needsUpdate = true;
+                    // NaN頂点混入後はバウンディングスフィアを再計算（カリング誤判定防止）
+                    hits[0].object.geometry.computeBoundingBox();
+                    hits[0].object.geometry.computeBoundingSphere();
+                    // 形状変化→体積表示・ワイヤー表示をリセット
+                    clearWireframe();
+                    document.getElementById('result').textContent = '---';
+                    updateVertCount();
+                    setTimeout(() => autoResetRollKeepCamera(), 0);
+                }
+                return;
+            }
+
+            if (mode === 'area') {
+                pushHistory();
+                isSelecting = true;
+                startPoint.set(e.clientX, e.clientY);
+                const b = document.getElementById('select-box');
+                b.style.cssText = `display:block; left:${e.clientX}px; top:${e.clientY}px; width:0; height:0;`;
+            }
+
+            if (mode === 'lasso') {
+                if (lassoFinished) return; // 描画完了後はドラッグ不可
+                lassoDrawing = true;
+                lassoPoints = [{ x: e.clientX, y: e.clientY }];
+                const lc = getLassoCanvas();
+                lc.width = innerWidth; lc.height = innerHeight;
+                drawLasso();
+            }
+        });
+
+        renderer.domElement.addEventListener('pointermove', (e) => {
+            if (e.pointerId !== activePointerId) return;
+            if (mode === 'lasso' && lassoDrawing) {
+                e.preventDefault();
+                lassoPoints.push({ x: e.clientX, y: e.clientY });
+                drawLasso();
+                return;
+            }
+            if (!isSelecting || mode !== 'area') return;
+            e.preventDefault();
+            const b = document.getElementById('select-box');
+            b.style.left = Math.min(startPoint.x, e.clientX) + 'px';
+            b.style.top = Math.min(startPoint.y, e.clientY) + 'px';
+            b.style.width = Math.abs(startPoint.x - e.clientX) + 'px';
+            b.style.height = Math.abs(startPoint.y - e.clientY) + 'px';
+        }, { passive: false });
+
+        renderer.domElement.addEventListener('pointerup', (e) => {
+            if (e.pointerId !== activePointerId) return;
+            activePointerId = null;
+            // ラッソモード：ドラッグ終了でラインを閉じる
+            if (mode === 'lasso' && lassoDrawing) {
+                lassoDrawing = false;
+                if (lassoPoints.length >= 3) {
+                    lassoFinished = true;
+                    drawLasso();
+                    toast('ラインが描けたよ！「消去実行」で範囲外を削除するわ');
+                } else {
+                    clearLasso();
+                    toast('もう少し大きくドラッグしてね', true);
+                }
+                return;
+            }
+
+            // select-box は常に即座に非表示（残留バグ防止）
+            document.getElementById('select-box').style.display = 'none';
+            if (!isSelecting || mode !== 'area') { isSelecting = false; return; }
+            isSelecting = false;
+            const minX = (Math.min(startPoint.x, e.clientX) / innerWidth) * 2 - 1;
+            const maxX = (Math.max(startPoint.x, e.clientX) / innerWidth) * 2 - 1;
+            const minY = -(Math.max(startPoint.y, e.clientY) / innerHeight) * 2 + 1;
+            const maxY = -(Math.min(startPoint.y, e.clientY) / innerHeight) * 2 + 1;
+
+let changed = false;
+
+targetMeshes.forEach(m => {
+    const p = m.geometry.attributes.position;
+    const mat = m.matrixWorld;
+    for (let i = 0; i < p.count; i += 3) {
+        if (isNaN(p.getX(i))) continue;
+        const v = new THREE.Vector3()
+            .fromBufferAttribute(p, i)
+            .applyMatrix4(mat)
+            .project(camera);
+
+        if (v.x >= minX && v.x <= maxX && v.y >= minY && v.y <= maxY) {
+            for (let j = 0; j < 3; j++) p.setXYZ(i + j, NaN, NaN, NaN);
+            changed = true;
+        }
+    }
+    p.needsUpdate = true;
+    // NaN頂点混入後はバウンディングスフィアを再計算（カリング誤判定防止）
+    m.geometry.computeBoundingBox();
+    m.geometry.computeBoundingSphere();
+});
+
+if (changed) {
+    originalGeometries = targetMeshes.map(m => m.geometry.clone());
+    // 形状変化→体積表示・ワイヤー表示をリセット
+    clearWireframe();
+    document.getElementById('result').textContent = '---';
+    setTimeout(() => autoResetRollKeepCamera(), 0);
+}
+
+        });
+
+        // ── ボタン紐付け ──
+        document.getElementById('exportBtn').onclick = exportGLB;
+        document.getElementById('calcBtn').onclick = calcVolume;
+
+        // カットツール（setModeで管理）
+        document.getElementById('btn-toggle-cutter').onclick = () => {
+            setMode(mode === 'cutter' ? 'none' : 'cutter');
+        };
+        document.getElementById('btn-execute-fusion').onclick = executeCut;
+        ['cut-height', 'cut-tilt-x', 'cut-tilt-z'].forEach(id => {
+            document.getElementById(id).addEventListener('input', updateCutterPlane);
+        });
+
+        // Simplifyトグル
+        document.getElementById('simplifyToggleBtn').onclick = () => {
+            const panel = document.getElementById('simplify-panel');
+            const isOpen = panel.style.display === 'block';
+            panel.style.display = isOpen ? 'none' : 'block';
+            document.getElementById('simplifyToggleBtn').classList.toggle('active-blue', !isOpen);
+        };
+
+        // Simplify実行（確認ダイアログあり）
+        document.getElementById('simplifyBtn').onclick = () => {
+            if (targetMeshes.length === 0) { toast('先にファイルを読み込んでね', true); return; }
+            const pct = document.getElementById('simplifySlider').value;
+            if (confirm(`マージ距離 ${pct}% で近接頂点を統合します。\nまずは5〜10%から試すことをおすすめします！\n大きい値にしすぎると形状が崩れます。\nUndoできます。実行しますか？`)) {
+                simplifyMeshes();
+            }
+        };
+
+        // Simplify slider
+        const simplifySlider = document.getElementById('simplifySlider');
+        // 初期値で--pctを設定（表示ズレ防止）
+        simplifySlider.style.setProperty('--pct', (simplifySlider.value / 25 * 100) + '%');
+        simplifySlider.oninput = () => {
+            document.getElementById('simplifyVal').textContent = simplifySlider.value + '%';
+            simplifySlider.style.setProperty('--pct', (simplifySlider.value / 25 * 100) + '%');
+        };
+
+        document.getElementById('undoBtn').onclick = undo;
+        document.getElementById('resetRoll').onclick = resetRoll;
+        document.getElementById('singleDel').onclick = () => setMode(mode === 'single' ? 'none' : 'single');
+        document.getElementById('areaDel').onclick = () => setMode(mode === 'area' ? 'none' : 'area');
+        document.getElementById('lassoDelBtn').onclick = () => {
+            if (targetMeshes.length === 0) { toast('先にファイルを読み込んでね', true); return; }
+            setMode(mode === 'lasso' ? 'none' : 'lasso');
+        };
+        document.getElementById('lassoExecBtn').onclick = executeLasso;
+        document.getElementById('lassoClearBtn').onclick = () => {
+            clearLasso();
+            // canvasは再表示
+            const lc = document.getElementById('lasso-canvas');
+            lc.width = innerWidth; lc.height = innerHeight;
+            lc.style.display = 'block';
+            toast('描き直してね');
+        };
+
+        // 視点ボタン
+        document.getElementById('view-top').onclick = () => setCam('top');
+        document.getElementById('view-front').onclick = () => setCam('front');
+        document.getElementById('view-right').onclick = () => setCam('right');
+        document.getElementById('view-left').onclick = () => setCam('left');
+        document.getElementById('view-back').onclick = () => setCam('back');
+        document.getElementById('resetView').onclick = () => setCam('overview');
+
+        // 距離調整
+        document.getElementById('measureBtn').onclick = () => setMode(mode === 'measure' ? 'none' : 'measure');
+        document.getElementById('applyScaleBtn').onclick = () => {
+            const raw = parseFloat(document.getElementById('dist-raw').textContent);
+            const real = parseFloat(document.getElementById('dist-real').value);
+            if (raw > 0 && real > 0) {
+                const ratio = real / raw;
+                modelGroup.scale.multiplyScalar(ratio);
+                modelGroup.updateMatrixWorld(true);
+                // スケール変更後は焼き付けて正規化（カメラ位置は維持）
+                setTimeout(() => autoResetRollKeepCamera(), 0);
+                clearMeasure(); setMode('none');
+                document.getElementById('scale-hint').style.display = 'block';
+                toast(`スケール調整完了: ×${ratio.toFixed(4)}`);
+            } else {
+                toast('正しい長さを入力してね', true);
+            }
+        };
+
+        // Drag & Drop
+        // dragover が来ている間だけ active を維持し、止まったら消すタイマー方式
+        // relatedTarget 判定はブラウザ依存で不確実なため採用しない
+        const dropOverlay = document.getElementById('drop-overlay');
+        let dragOverTimer = null;
+
+        const showDropOverlay = () => {
+            dropOverlay.classList.add('active');
+            // ① ファイル未ロード時はタイマーを動かさない（初期表示を維持する）
+            if (fileLoaded) {
+                clearTimeout(dragOverTimer);
+                dragOverTimer = setTimeout(() => dropOverlay.classList.remove('active'), 150);
+            }
+        };
+
+        window.addEventListener('dragenter', e => { e.preventDefault(); });
+        window.addEventListener('dragover', e => {
+            e.preventDefault();
+            if (e.dataTransfer && e.dataTransfer.types &&
+                (e.dataTransfer.types.includes('Files') || e.dataTransfer.types.includes('application/x-moz-file'))) {
+                showDropOverlay();
+            }
+        });
+        window.addEventListener('dragleave', e => { /* タイマーに任せる */ });
+        window.addEventListener('drop', e => {
+            e.preventDefault();
+            clearTimeout(dragOverTimer);
+            dropOverlay.classList.remove('active');
+            if (e.dataTransfer.files.length > 0) load(e.dataTransfer.files[0]);
+        });
+
+        // ── ファイル選択ダイアログ（スマホ・タブレット向け） ──
+        const fileInput = document.getElementById('file-input');
+        // D&Dオーバーレイのタップでファイル選択を開く
+        dropOverlay.addEventListener('click', () => {
+            fileInput.click();
+        });
+        fileInput.addEventListener('change', e => {
+            if (e.target.files.length > 0) {
+                load(e.target.files[0]);
+                // 同じファイルを再選択できるようにリセット
+                fileInput.value = '';
+            }
+        });
+
+        // ── ハンバーガーメニュー開閉 ──
+        const panelOverlay = document.getElementById('panel-overlay');
+        const uiPanel = document.getElementById('ui');
+        const viewPanel = document.getElementById('view-panel');
+
+        function closePanels() {
+            uiPanel.classList.remove('open');
+            viewPanel.classList.remove('open');
+            panelOverlay.classList.remove('active');
+        }
+
+        document.getElementById('hamburger-main').addEventListener('click', () => {
+            const isOpen = uiPanel.classList.contains('open');
+            closePanels();
+            if (!isOpen) {
+                uiPanel.classList.add('open');
+                panelOverlay.classList.add('active');
+            }
+        });
+
+        document.getElementById('hamburger-view').addEventListener('click', () => {
+            const isOpen = viewPanel.classList.contains('open');
+            closePanels();
+            if (!isOpen) {
+                viewPanel.classList.add('open');
+                panelOverlay.classList.add('active');
+            }
+        });
+
+        // 背景タップでパネルを閉じる
+        panelOverlay.addEventListener('click', closePanels);
+
+        // Keyboard
+        window.addEventListener('keydown', e => {
+            if (e.ctrlKey && e.key === 'z') undo();
+            if (e.key === 'Escape') setMode('none');
+            // Rキー：視点再調整（入力フィールドにフォーカス中は除外）
+            if (e.key === 'r' || e.key === 'R') {
+                const tag = document.activeElement.tagName;
+                if (tag !== 'INPUT' && tag !== 'TEXTAREA') resetRoll();
+            }
+        });
+
+        // Resize
+        window.addEventListener('resize', () => {
+            camera.aspect = innerWidth / innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(innerWidth, innerHeight);
+        });
+
+        // ─────────────────────────────────────────────
+        // Render loop（メイン＋サイドビュー）
+        // ─────────────────────────────────────────────
+        // 視点移動・回転・ズーム時に select-box を即座に消す
+        controls.addEventListener('change', () => {
+            document.getElementById('select-box').style.display = 'none';
+            isSelecting = false;
+            // 視点移動時はラッソラインも即消し（残留防止）
+            if (mode !== 'lasso') clearLasso();
+        });
+
+        (function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        })();
+    </script>
+</body>
+
+</html>
