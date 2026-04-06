@@ -21,22 +21,19 @@
 
   【バージョンルール】
     指示がない限り、軽微な更新でも毎回バージョンを 1 つ上げること。
-    例: v1.206 → v1.215
+    例: v1.206 → v1.300
 
   【Claude への引き継ぎメモ】
     - LiDAR メッシュは穴あき・非多様体が多い点に注意
     - sealHoles はファン三角形方式のため大きな開口部で誤差が出やすい
-    - ボクセル化（v1.215～）：高さマップ（2.5D）方式
+    - ボクセル化（v1.300～）：高さマップ（2.5D）方式
       XZグリッドの各セルで最大Y頂点を取得→地盤面（Y下位5%中央値）との差を積算
       ★ sealHolesはボクセル化計算から完全切り離し済み（v1.212～）
-      ★ 外側BFS方式に変更（v1.216～）
-        スキャンライン方式はドーナツ状メッシュの中央空洞も内側と誤判定する問題があった。
-        新方式：グリッド端から4近傍BFSで -Infinity セルを「外側」に塗り、
-        残った -Infinity（=外部と繋がっていない閉じた穴）のみ補完する。
-        → LiDAR欠損穴は補完、ドーナツ状本物空洞はそのまま正確に保持。
-      ★ ボクセルジオメトリをチャンク分割（v1.216～）
-        ボクセルサイズ小→大量セルでWebGLバッファ上限超えエラー・スカスカ問題を修正。
-        5000ボクセル単位でチャンクを作り最後にFloat32Array結合。
+      ★ BFS外側判定を廃止、スキャンライン内側判定に移行（v1.300～）
+        BFSは球面メッシュのギャップから外側が内側に「漏れる」バグがあった。
+        代替：行・列それぞれの有効セル両端範囲で内側を特定するスキャンライン方式。
+        外側 -Infinity セル → 生成ループでskip → 幽霊ボクセル根絶。
+        内側 -Infinity セル → 最大50パス平均補完 → 頂上穴を正確に埋める。
       グリッドサイズ: 2〜50cm 固定
       体積 = Σ(セル面積 × (最大Y - 地盤Y))
       穴あき・非閉メッシュ・頂部欠損に強い。平地前提。
@@ -48,10 +45,15 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="VolChe">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>VolChe - Volume Checker v1.221</title>
+    <title>VolChe - Volume Checker v1.300</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -620,6 +622,114 @@
             }
         }
 
+
+        /* ══════════════════════════════════════════════
+           スマホ専用レイアウト（max-width:430px 縦持ち）
+           PC・iPad は完全無影響
+        ══════════════════════════════════════════════ */
+        @media (max-width: 430px) {
+
+            /* body を縦flex化 */
+            body {
+                display: flex !important;
+                flex-direction: column !important;
+                height: 100dvh !important;
+                overflow: hidden !important;
+            }
+
+            /* Three.jsのcanvas（body直下）を上半分に */
+            body > canvas {
+                position: relative !important;
+                flex: 0 0 50dvh !important;
+                width: 100% !important;
+                height: 50dvh !important;
+                top: auto !important; left: auto !important;
+            }
+
+            /* 左パネル(#ui)を下半分のスクロールエリアに */
+            #ui {
+                position: relative !important;
+                top: auto !important; left: auto !important;
+                width: 100% !important;
+                height: auto !important;
+                flex: 1 1 0 !important;
+                overflow-y: auto !important;
+                -webkit-overflow-scrolling: touch !important;
+                border-radius: 0 !important;
+                border-left: none !important;
+                border-right: none !important;
+                border-bottom: none !important;
+                border-top: 2px solid var(--border-bright) !important;
+                transform: none !important;
+                transition: none !important;
+            }
+
+            /* view-panelをcanvas上に重ねる（右上） */
+            #view-panel {
+                position: fixed !important;
+                top: 4px !important;
+                right: 4px !important;
+                width: 148px !important;
+                max-height: 48dvh !important;
+                overflow-y: auto !important;
+                transform: none !important;
+                transition: none !important;
+                padding: 8px 10px !important;
+                z-index: 200 !important;
+            }
+            #view-panel .btn {
+                font-size: 11px !important;
+                padding: 5px 2px !important;
+                min-height: 34px !important;
+            }
+
+            /* ハンバーガー不要 */
+            .hamburger-btn { display: none !important; }
+
+            /* drop-overlayをcanvasエリアに収める */
+            #drop-overlay {
+                height: 50dvh !important;
+                bottom: auto !important;
+            }
+
+            /* toast を上半分下部に */
+            #toast {
+                bottom: 51dvh !important;
+                top: auto !important;
+                font-size: 11px !important;
+                padding: 5px 10px !important;
+                white-space: normal !important;
+                max-width: 80% !important;
+                text-align: center !important;
+            }
+
+            /* mode-badge をcanvasエリア上部に */
+            #mode-badge {
+                top: 4px !important;
+                font-size: 10px !important;
+                padding: 5px 8px !important;
+                white-space: normal !important;
+                max-width: 55% !important;
+                text-align: center !important;
+            }
+
+            /* ロゴを小さく */
+            #osaki-logo {
+                bottom: 51dvh !important;
+                right: 4px !important;
+                width: 60px !important;
+            }
+
+            /* select-box・lasso-canvasはfixedのまま（動作に影響なし） */
+
+            /* ボタンタッチサイズ確保 */
+            .btn { min-height: 44px !important; }
+
+            /* drop-box縮小 */
+            .drop-box { padding: 16px 24px !important; }
+            .drop-box .icon { font-size: 28px !important; }
+            .drop-box .main { font-size: 13px !important; }
+        }
     </style>
 </head>
 
@@ -699,7 +809,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.221</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.300</span>
         </div>
         <div class="panel-body">
 
@@ -2512,8 +2622,10 @@
                     const cy = (p.getY(i) + p.getY(i+1) + p.getY(i+2)) / 3;
                     const cz = (p.getZ(i) + p.getZ(i+1) + p.getZ(i+2)) / 3;
                     const v = new THREE.Vector3(cx, cy, cz).applyMatrix4(mat).project(camera);
-                    const sx = (v.x + 1) / 2 * innerWidth;
-                    const sy = (-v.y + 1) / 2 * innerHeight;
+                    const _cw = renderer.domElement.clientWidth || innerWidth;
+                    const _ch = renderer.domElement.clientHeight || innerHeight;
+                    const sx = (v.x + 1) / 2 * _cw;
+                    const sy = (-v.y + 1) / 2 * _ch;
 
                     if (!pointInLasso(sx, sy, lassoPoints)) {
                         for (let j = 0; j < 3; j++) p.setXYZ(i + j, NaN, NaN, NaN);
@@ -2537,7 +2649,7 @@
             // ラッソ線をリセットして描き直し待機（モードは終了しない）
             clearLasso();
             const lc = document.getElementById('lasso-canvas');
-            lc.width = innerWidth; lc.height = innerHeight;
+            lc.width = renderer.domElement.clientWidth || innerWidth; lc.height = renderer.domElement.clientHeight || innerHeight;
             lc.style.display = 'block';
 
             // 座標正規化後に平面視点を再適用
@@ -2624,7 +2736,7 @@
             if (mode === 'lasso' && targetMeshes.length > 0) {
                 moveCameraTopForLasso();
                 const lc = document.getElementById('lasso-canvas');
-                lc.width = innerWidth; lc.height = innerHeight;
+                lc.width = renderer.domElement.clientWidth || innerWidth; lc.height = renderer.domElement.clientHeight || innerHeight;
                 lc.style.display = 'block';
             } else if (newMode !== 'lasso') {
                 document.getElementById('lasso-canvas').style.display = 'none';
@@ -2730,7 +2842,7 @@
                 lassoDrawing = true;
                 lassoPoints = [{ x: e.clientX, y: e.clientY }];
                 const lc = getLassoCanvas();
-                lc.width = innerWidth; lc.height = innerHeight;
+                lc.width = renderer.domElement.clientWidth || innerWidth; lc.height = renderer.domElement.clientHeight || innerHeight;
                 drawLasso();
             }
         });
@@ -2896,7 +3008,7 @@ if (changed) {
             clearLasso();
             // canvasは再表示
             const lc = document.getElementById('lasso-canvas');
-            lc.width = innerWidth; lc.height = innerHeight;
+            lc.width = renderer.domElement.clientWidth || innerWidth; lc.height = renderer.domElement.clientHeight || innerHeight;
             lc.style.display = 'block';
             toast('描き直してね');
         };
@@ -3017,11 +3129,18 @@ if (changed) {
         });
 
         // Resize
-        window.addEventListener('resize', () => {
-            camera.aspect = innerWidth / innerHeight;
+        // リサイズ（スマホ時はcanvasの実サイズを使う）
+        function onResize() {
+            const c = renderer.domElement;
+            const w = c.clientWidth  || innerWidth;
+            const h = c.clientHeight || innerHeight;
+            camera.aspect = w / h;
             camera.updateProjectionMatrix();
-            renderer.setSize(innerWidth, innerHeight);
-        });
+            renderer.setSize(w, h, false);
+        }
+        window.addEventListener('resize', onResize);
+        // スマホでlayout確定後に再計算
+        setTimeout(onResize, 100);
 
         // ─────────────────────────────────────────────
         // Render loop（メイン＋サイドビュー）
