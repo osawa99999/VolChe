@@ -21,15 +21,15 @@
 
   【バージョンルール】
     指示がない限り、軽微な更新でも毎回バージョンを 1 つ上げること。
-    例: v1.206 → v1.307
+    例: v1.206 → v1.308
 
   【Claude への引き継ぎメモ】
     - LiDAR メッシュは穴あき・非多様体が多い点に注意
     - sealHoles はファン三角形方式のため大きな開口部で誤差が出やすい
-    - ボクセル化（v1.307～）：高さマップ（2.5D）方式
+    - ボクセル化（v1.308～）：高さマップ（2.5D）方式
       XZグリッドの各セルで最大Y頂点を取得→地盤面（Y下位5%中央値）との差を積算
       ★ sealHolesはボクセル化計算から完全切り離し済み（v1.212～）
-      ★ BFS外側判定を廃止、スキャンライン内側判定に移行（v1.307～）
+      ★ BFS外側判定を廃止、スキャンライン内側判定に移行（v1.308～）
         BFSは球面メッシュのギャップから外側が内側に「漏れる」バグがあった。
         代替：行・列それぞれの有効セル両端範囲で内側を特定するスキャンライン方式。
         外側 -Infinity セル → 生成ループでskip → 幽霊ボクセル根絶。
@@ -53,7 +53,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>VolChe - Volume Checker v1.307</title>
+    <title>VolChe - Volume Checker v1.308</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -733,6 +733,12 @@
 
             /* select-box・lasso-canvasはfixedのまま（動作に影響なし） */
 
+            /* ダブルタップズーム防止 */
+            body, canvas, #ui, #view-panel {
+                touch-action: manipulation !important;
+            }
+            /* ラッソcanvasはタッチ操作を受け取る必要があるのでnoneにしない */
+
             /* ボタンタッチサイズ確保（UIエリア内は少しコンパクトに） */
             #ui .btn { min-height: 40px !important; font-size: 13px !important; }
             #ui .panel-body { padding: 10px 12px !important; }
@@ -823,7 +829,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.307</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.308</span>
         </div>
         <div class="panel-body">
 
@@ -2774,8 +2780,12 @@
             if (mode === 'lasso' && targetMeshes.length > 0) {
                 moveCameraTopForLasso();
                 const lc = document.getElementById('lasso-canvas');
-                lc.width = renderer.domElement.clientWidth || innerWidth; lc.height = renderer.domElement.clientHeight || innerHeight;
+                // スマホ時はsp-view上半分のサイズ、PC時はcanvasサイズ
+                const cv = renderer.domElement;
+                lc.width  = cv.clientWidth  || innerWidth;
+                lc.height = cv.clientHeight || innerHeight;
                 lc.style.display = 'block';
+                lc.style.pointerEvents = 'none'; // タッチはwindowで受け取るのでcanvasはnone
             } else if (newMode !== 'lasso') {
                 document.getElementById('lasso-canvas').style.display = 'none';
             }
@@ -2814,6 +2824,25 @@
                 modeBadge.classList.remove('active'); setStatus('READY');
             }
         }
+
+        // ─────────────────────────────────────────────
+        // タッチイベント → ラッソ・矩形消去対応
+        // lasso/area モード時のみタッチをマウスイベントに変換
+        // ─────────────────────────────────────────────
+        function touchToMouse(e, type) {
+            if (mode !== 'lasso' && mode !== 'area') return;
+            // OrbitControlsのタッチ操作を止める
+            e.preventDefault();
+            const t = e.changedTouches[0];
+            const me = new MouseEvent(type, {
+                clientX: t.clientX, clientY: t.clientY,
+                bubbles: true, cancelable: true, button: 0
+            });
+            e.target.dispatchEvent(me);
+        }
+        renderer.domElement.addEventListener('touchstart',  e => touchToMouse(e, 'mousedown'),  { passive: false });
+        window.addEventListener('touchmove',  e => { if (mode === 'lasso' || mode === 'area') { e.preventDefault(); const t = e.changedTouches[0]; window.dispatchEvent(new MouseEvent('mousemove', { clientX: t.clientX, clientY: t.clientY, bubbles: true })); } }, { passive: false });
+        window.addEventListener('touchend',   e => { if (mode === 'lasso' || mode === 'area') { e.preventDefault(); const t = e.changedTouches[0]; window.dispatchEvent(new MouseEvent('mouseup',   { clientX: t.clientX, clientY: t.clientY, bubbles: true })); } }, { passive: false });
 
         renderer.domElement.addEventListener('mousedown', (e) => {
             if (mode === 'none') return;
