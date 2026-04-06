@@ -21,15 +21,15 @@
 
   【バージョンルール】
     指示がない限り、軽微な更新でも毎回バージョンを 1 つ上げること。
-    例: v1.206 → v1.306
+    例: v1.206 → v1.307
 
   【Claude への引き継ぎメモ】
     - LiDAR メッシュは穴あき・非多様体が多い点に注意
     - sealHoles はファン三角形方式のため大きな開口部で誤差が出やすい
-    - ボクセル化（v1.306～）：高さマップ（2.5D）方式
+    - ボクセル化（v1.307～）：高さマップ（2.5D）方式
       XZグリッドの各セルで最大Y頂点を取得→地盤面（Y下位5%中央値）との差を積算
       ★ sealHolesはボクセル化計算から完全切り離し済み（v1.212～）
-      ★ BFS外側判定を廃止、スキャンライン内側判定に移行（v1.306～）
+      ★ BFS外側判定を廃止、スキャンライン内側判定に移行（v1.307～）
         BFSは球面メッシュのギャップから外側が内側に「漏れる」バグがあった。
         代替：行・列それぞれの有効セル両端範囲で内側を特定するスキャンライン方式。
         外側 -Infinity セル → 生成ループでskip → 幽霊ボクセル根絶。
@@ -53,7 +53,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>VolChe - Volume Checker v1.306</title>
+    <title>VolChe - Volume Checker v1.307</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -761,7 +761,7 @@
     <div id="panel-overlay"></div>
 
     <!-- ファイル選択input（非表示、D&Dできない環境向け） -->
-    <input type="file" id="file-input" accept=".fbx,.glb,.gltf" style="display:none;">
+    <input type="file" id="file-input" accept=".fbx,.glb,.gltf,application/octet-stream,model/gltf-binary,model/gltf+json" style="display:none;">
 
     <div id="drop-overlay" class="active">
         <div class="drop-box">
@@ -823,7 +823,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.306</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.307</span>
         </div>
         <div class="panel-body">
 
