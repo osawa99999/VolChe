@@ -21,15 +21,15 @@
 
   【バージョンルール】
     指示がない限り、軽微な更新でも毎回バージョンを 1 つ上げること。
-    例: v1.206 → v1.309
+    例: v1.206 → v1.310
 
   【Claude への引き継ぎメモ】
     - LiDAR メッシュは穴あき・非多様体が多い点に注意
     - sealHoles はファン三角形方式のため大きな開口部で誤差が出やすい
-    - ボクセル化（v1.309～）：高さマップ（2.5D）方式
+    - ボクセル化（v1.310～）：高さマップ（2.5D）方式
       XZグリッドの各セルで最大Y頂点を取得→地盤面（Y下位5%中央値）との差を積算
       ★ sealHolesはボクセル化計算から完全切り離し済み（v1.212～）
-      ★ BFS外側判定を廃止、スキャンライン内側判定に移行（v1.309～）
+      ★ BFS外側判定を廃止、スキャンライン内側判定に移行（v1.310～）
         BFSは球面メッシュのギャップから外側が内側に「漏れる」バグがあった。
         代替：行・列それぞれの有効セル両端範囲で内側を特定するスキャンライン方式。
         外側 -Infinity セル → 生成ループでskip → 幽霊ボクセル根絶。
@@ -53,7 +53,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>VolChe - Volume Checker v1.309</title>
+    <title>VolChe - Volume Checker v1.310</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -773,7 +773,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.309</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.310</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:10px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -829,7 +829,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.309</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.310</span>
         </div>
         <div class="panel-body">
 
@@ -2666,10 +2666,10 @@
                     const cy = (p.getY(i) + p.getY(i+1) + p.getY(i+2)) / 3;
                     const cz = (p.getZ(i) + p.getZ(i+1) + p.getZ(i+2)) / 3;
                     const v = new THREE.Vector3(cx, cy, cz).applyMatrix4(mat).project(camera);
-                    const _cw = renderer.domElement.clientWidth || innerWidth;
-                    const _ch = renderer.domElement.clientHeight || innerHeight;
-                    const sx = (v.x + 1) / 2 * _cw;
-                    const sy = (-v.y + 1) / 2 * _ch;
+                    const _rect = renderer.domElement.getBoundingClientRect();
+                    // NDC→clientXY座標系（lassoPointsと同じ座標系）
+                    const sx = (v.x + 1) / 2 * _rect.width  + _rect.left;
+                    const sy = (-v.y + 1) / 2 * _rect.height + _rect.top;
 
                     if (!pointInLasso(sx, sy, lassoPoints)) {
                         for (let j = 0; j < 3; j++) p.setXYZ(i + j, NaN, NaN, NaN);
@@ -2693,7 +2693,7 @@
             // ラッソ線をリセットして描き直し待機（モードは終了しない）
             clearLasso();
             const lc = document.getElementById('lasso-canvas');
-            lc.width = renderer.domElement.clientWidth || innerWidth; lc.height = renderer.domElement.clientHeight || innerHeight;
+            lc.width = innerWidth; lc.height = innerHeight;
             lc.style.display = 'block';
 
             // 座標正規化後に平面視点を再適用
@@ -2781,9 +2781,9 @@
                 moveCameraTopForLasso();
                 const lc = document.getElementById('lasso-canvas');
                 // スマホ時はsp-view上半分のサイズ、PC時はcanvasサイズ
-                const cv = renderer.domElement;
-                lc.width  = cv.clientWidth  || innerWidth;
-                lc.height = cv.clientHeight || innerHeight;
+                // lasso-canvasはfixed inset:0なのでclientXY座標系（innerWidth×innerHeight）に統一
+                lc.width  = innerWidth;
+                lc.height = innerHeight;
                 lc.style.display = 'block';
                 lc.style.pointerEvents = 'none'; // タッチはwindowで受け取るのでcanvasはnone
             } else if (newMode !== 'lasso') {
@@ -2841,7 +2841,17 @@
             e.target.dispatchEvent(me);
         }
         renderer.domElement.addEventListener('touchstart',  e => touchToMouse(e, 'mousedown'),  { passive: false });
-        window.addEventListener('touchmove',  e => { if (mode === 'lasso' || mode === 'area') { e.preventDefault(); const t = e.changedTouches[0]; window.dispatchEvent(new MouseEvent('mousemove', { clientX: t.clientX, clientY: t.clientY, bubbles: true })); } }, { passive: false });
+        window.addEventListener('touchmove',  e => {
+            if (mode === 'lasso' || mode === 'area') {
+                const t = e.changedTouches[0];
+                // canvasエリア内のタッチのみpreventDefault（#uiのスクロールは阻止しない）
+                const canvasRect = renderer.domElement.getBoundingClientRect();
+                if (t.clientY >= canvasRect.top && t.clientY <= canvasRect.bottom) {
+                    e.preventDefault();
+                }
+                window.dispatchEvent(new MouseEvent('mousemove', { clientX: t.clientX, clientY: t.clientY, bubbles: true }));
+            }
+        }, { passive: false });
         window.addEventListener('touchend',   e => { if (mode === 'lasso' || mode === 'area') { e.preventDefault(); const t = e.changedTouches[0]; window.dispatchEvent(new MouseEvent('mouseup',   { clientX: t.clientX, clientY: t.clientY, bubbles: true })); } }, { passive: false });
 
         renderer.domElement.addEventListener('mousedown', (e) => {
@@ -2897,7 +2907,6 @@
             }
 
             if (mode === 'area') {
-                pushHistory();
                 isSelecting = true;
                 startPoint.set(e.clientX, e.clientY);
                 const b = document.getElementById('select-box');
@@ -2909,7 +2918,7 @@
                 lassoDrawing = true;
                 lassoPoints = [{ x: e.clientX, y: e.clientY }];
                 const lc = getLassoCanvas();
-                lc.width = renderer.domElement.clientWidth || innerWidth; lc.height = renderer.domElement.clientHeight || innerHeight;
+                lc.width = innerWidth; lc.height = innerHeight;
                 drawLasso();
             }
         });
@@ -2947,10 +2956,13 @@
             document.getElementById('select-box').style.display = 'none';
             if (!isSelecting || mode !== 'area') { isSelecting = false; return; }
             isSelecting = false;
-            const minX = (Math.min(startPoint.x, e.clientX) / innerWidth) * 2 - 1;
-            const maxX = (Math.max(startPoint.x, e.clientX) / innerWidth) * 2 - 1;
-            const minY = -(Math.max(startPoint.y, e.clientY) / innerHeight) * 2 + 1;
-            const maxY = -(Math.min(startPoint.y, e.clientY) / innerHeight) * 2 + 1;
+            const _rect = renderer.domElement.getBoundingClientRect();
+            const _cw = _rect.width;
+            const _ch = _rect.height;
+            const minX = ((Math.min(startPoint.x, e.clientX) - _rect.left) / _cw) * 2 - 1;
+            const maxX = ((Math.max(startPoint.x, e.clientX) - _rect.left) / _cw) * 2 - 1;
+            const minY = -((Math.max(startPoint.y, e.clientY) - _rect.top)  / _ch) * 2 + 1;
+            const maxY = -((Math.min(startPoint.y, e.clientY) - _rect.top)  / _ch) * 2 + 1;
 
 let changed = false;
 
@@ -2976,9 +2988,11 @@ targetMeshes.forEach(m => {
 });
 
 if (changed) {
+    pushHistory();
     // 形状変化→体積表示・ワイヤー表示をリセット
     clearWireframe();
     document.getElementById('result').textContent = '---';
+    updateVertCount();
     setTimeout(() => autoResetRollKeepCamera(), 0);
 }
 
@@ -3075,7 +3089,7 @@ if (changed) {
             clearLasso();
             // canvasは再表示
             const lc = document.getElementById('lasso-canvas');
-            lc.width = renderer.domElement.clientWidth || innerWidth; lc.height = renderer.domElement.clientHeight || innerHeight;
+            lc.width = innerWidth; lc.height = innerHeight;
             lc.style.display = 'block';
             toast('描き直してね');
         };
