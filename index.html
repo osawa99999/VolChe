@@ -1,3 +1,48 @@
+<!--
+================================================================================
+  VolChe - Volume Checker
+================================================================================
+  【このアプリの使用目的】
+    工事現場の残土の山などを iPad Pro の LiDAR で取得し、
+    FBX 形式で書き出して体積を計算するためのツール。
+
+  【想定ワークフロー】
+    1. iPad Pro の LiDAR スキャナで現場（土山・残土など）を撮影
+    2. FBX 形式でエクスポート
+    3. このアプリ（VolChe）に FBX / GLB をドラッグ＆ドロップ
+    4. 必要に応じて「地盤面設定（下部カット）」で地盤面を除去
+    5. 「体積計算」ボタンで体積を取得（m³）
+
+  【補足】
+    - GLB 形式での読み書きも対応（PowerPoint / Web での表示に便利）
+    - ボクセル化機能あり（大規模メッシュを穴なしブロックに変換・体積直接取得）
+    - 単体 HTML ファイルで動作、サーバー不要
+    - 用途は積算（ダンプ台数・残土処分費）なので数%の誤差は許容範囲
+
+  【バージョンルール】
+    指示がない限り、軽微な更新でも毎回バージョンを 1 つ上げること。
+    例: v1.206 → v1.215
+
+  【Claude への引き継ぎメモ】
+    - LiDAR メッシュは穴あき・非多様体が多い点に注意
+    - sealHoles はファン三角形方式のため大きな開口部で誤差が出やすい
+    - ボクセル化（v1.215～）：高さマップ（2.5D）方式
+      XZグリッドの各セルで最大Y頂点を取得→地盤面（Y下位5%中央値）との差を積算
+      ★ sealHolesはボクセル化計算から完全切り離し済み（v1.212～）
+      ★ 外側BFS方式に変更（v1.216～）
+        スキャンライン方式はドーナツ状メッシュの中央空洞も内側と誤判定する問題があった。
+        新方式：グリッド端から4近傍BFSで -Infinity セルを「外側」に塗り、
+        残った -Infinity（=外部と繋がっていない閉じた穴）のみ補完する。
+        → LiDAR欠損穴は補完、ドーナツ状本物空洞はそのまま正確に保持。
+      ★ ボクセルジオメトリをチャンク分割（v1.216～）
+        ボクセルサイズ小→大量セルでWebGLバッファ上限超えエラー・スカスカ問題を修正。
+        5000ボクセル単位でチャンクを作り最後にFloat32Array結合。
+      グリッドサイズ: 2〜50cm 固定
+      体積 = Σ(セル面積 × (最大Y - 地盤Y))
+      穴あき・非閉メッシュ・頂部欠損に強い。平地前提。
+    - カット体積の誤差（球体半分で約5%）は許容範囲と判断済み
+================================================================================
+-->
 <!DOCTYPE html>
 <html lang="ja">
 
@@ -6,7 +51,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>VolChe - Volume Checker v1.100</title>
+    <title>VolChe - Volume Checker v1.221</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -371,26 +416,39 @@
         /* ── MODE BADGE ── */
         #mode-badge {
             position: fixed;
-            bottom: 70px;
+            top: 16px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.88);
+            background: rgba(0, 0, 0, 0.92);
             border: 1px solid var(--warn);
             border-radius: 6px;
-            padding: 8px 20px;
+            padding: 10px 16px;
             font-family: var(--mono);
-            font-size: 14px;
+            font-size: 13px;
             color: var(--warn);
-            letter-spacing: 0.12em;
-            pointer-events: none;
+            letter-spacing: 0.08em;
+            pointer-events: auto;
+            cursor: pointer;
             display: none;
-            z-index: 150;
+            z-index: 500;
             text-align: center;
-            box-shadow: 0 0 16px rgba(255, 107, 43, 0.25);
+            box-shadow: 0 0 20px rgba(255, 107, 43, 0.35);
+            white-space: nowrap;
         }
 
         #mode-badge.active {
             display: block;
+        }
+
+        #mode-badge .cancel-hint {
+            display: block;
+            font-size: 12px;
+            color: #fff;
+            background: var(--warn);
+            border-radius: 3px;
+            padding: 4px 10px;
+            margin-top: 6px;
+            letter-spacing: 0.05em;
         }
 
         body.mode-select canvas {
@@ -641,7 +699,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.100</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.221</span>
         </div>
         <div class="panel-body">
 
@@ -651,7 +709,7 @@
                     <button class="btn" id="singleDel">個別指定消去</button>
                     <button class="btn" id="areaDel">矩形範囲消去</button>
                 </div>
-                <button class="btn" id="lassoDelBtn" style="margin-top:5px; color:var(--warn); border-color:rgba(255,107,43,0.35);">✏ 範囲外消去</button>
+                <button class="btn" id="lassoDelBtn" style="margin-top:5px; font-size:11px; line-height:1.3; padding:7px 6px;">範囲外消去</button>
                 <!-- ラッソ消去実行ボタン（範囲外消去モード中のみ表示） -->
                 <div id="lasso-ui" style="display:none; margin-top:6px; background:#000; border:1px solid rgba(255,107,43,0.3); border-radius:3px; padding:8px;">
                     <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; line-height:1.5;">囲んだ範囲の<b style="color:var(--warn);">外側</b>を消去します<br>マウスドラッグでラインを描いてね</div>
@@ -660,7 +718,7 @@
                     <button class="btn" id="lassoClearBtn" style="background:rgba(255,255,255,0.12); color:#fff; border-color:rgba(255,255,255,0.4); font-size:13px; font-weight:700;">✕ 描き直し</button>
                 </div>
                 <div class="btn-grid" style="margin-top:5px;">
-                    <button class="btn" id="btn-toggle-cutter" style="font-size:11px; line-height:1.3; padding:7px 6px;">地盤面設定（下部カット）</button>
+                    <button class="btn" id="btn-toggle-cutter" style="font-size:11px; line-height:1.3; padding:7px 6px;">地盤面設定<br>（下部カット）</button>
                     <button class="btn" id="measureBtn" style="font-size:11px; line-height:1.3; padding:7px 6px;">距離測定 (rescale)</button>
                 </div>
                 <button class="btn" id="undoBtn" style="margin-top:5px;">↩ 元に戻す</button>
@@ -710,7 +768,8 @@
                 </div>
             </div>
 
-            <!-- 体積計算 -->
+            <!-- 体積計算・ファイル（ボクセルパネル展開中は非表示） -->
+            <div id="volume-file-section">
             <div id="result-box">
                 <div class="result-label">VOLUME</div>
                 <div id="result">---</div>
@@ -738,19 +797,41 @@
 
             </div>
 
+            </div><!-- /volume-file-section -->
+
             <div class="section">
-                <div class="section-label">Simplify</div>
-                <button class="btn" id="simplifyToggleBtn">⚙ 頂点マージ（簡略化）</button>
+                <div class="section-label">Voxelize</div>
+                <button class="btn" id="simplifyToggleBtn">🧱 ボクセル化（高さマップ）</button>
                 <div id="simplify-panel"
                     style="display:none; margin-top:8px; background:#000; border:1px solid rgba(57,255,143,0.2); border-radius:3px; padding:10px;">
+                    <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px;">グリッドサイズ（2〜50cm）</div>
                     <div class="simplify-row">
-                        <label>マージ距離</label>
-                        <input type="range" id="simplifySlider" min="0" max="25" step="1" value="5">
-                        <span class="val" id="simplifyVal">5%</span>
+                        <input type="range" id="simplifySlider" min="2" max="50" step="1" value="10">
+                        <span class="val" id="simplifyVal" style="width:52px;">10 cm</span>
                     </div>
-                    <div style="font-size:10px; color:var(--text-dim); font-family:var(--mono); line-height:1.5; margin-top:4px;">近接頂点を統合して面をまとめます。<br>穴は開きません。やり過ぎ注意！</div>
-                    <button class="btn" id="simplifyBtn"
-                        style="margin-top:8px; border-color:rgba(57,255,143,0.4); color:var(--accent);">実行</button>
+                    <div id="simplify-size-hint" style="font-size:10px; color:var(--accent2); font-family:var(--mono); margin-top:2px; text-align:right; min-height:14px;"></div>
+                    <div style="font-size:10px; color:var(--text-dim); font-family:var(--mono); line-height:1.5; margin-top:4px;">
+                        XZグリッドで最大高さを取得し積算。<br>頂部欠損は近傍補完。穴あきメッシュOK。<br>地盤面は自動検出（平地前提）。
+                    </div>
+                    <!-- プレビュー情報（プレビュー中のみ） -->
+                    <div id="simplify-preview-info" style="display:none; margin-top:6px; padding:6px 8px; background:rgba(0,200,255,0.08); border:1px solid rgba(0,200,255,0.3); border-radius:3px; font-family:var(--mono); font-size:11px; color:var(--accent2); line-height:1.6;">
+                        <div id="simplify-preview-stats"></div>
+                    </div>
+                    <!-- 通常時ボタン -->
+                    <div id="simplify-idle-btns">
+                        <button class="btn" id="simplifyPreviewBtn"
+                            style="margin-top:8px; border-color:rgba(0,200,255,0.5); color:var(--accent2);">👁 プレビュー＆計算</button>
+                    </div>
+                    <!-- 確認ボタン（プレビュー後） -->
+                    <div id="simplify-confirm-btns" style="display:none; margin-top:6px;">
+                        <button class="btn" id="simplifyApplyBtn"
+                            style="background:rgba(57,255,143,0.15); border-color:rgba(57,255,143,0.6); color:var(--accent); font-weight:700; margin-bottom:4px;">✓ この形状に変換</button>
+                        <button class="btn" id="simplifyCancelBtn"
+                            style="background:rgba(255,107,43,0.08); border-color:rgba(255,107,43,0.4); color:var(--warn);">✕ キャンセル</button>
+                    </div>
+                    <!-- 終了ボタン（常時表示） -->
+                    <button class="btn" id="simplifyCloseBtn"
+                        style="margin-top:8px; border-color:rgba(255,255,255,0.2); color:var(--text-dim); font-size:12px;">✕ ボクセル化を終了</button>
                 </div>
             </div>
 
@@ -775,6 +856,8 @@
         </div>
         <button class="btn" id="resetRoll"
             style="margin-top:6px; background:rgba(0,200,255,0.15); color:var(--accent2); border-color:rgba(0,200,255,0.6); font-size:15px; font-weight:700; letter-spacing:0.08em; padding:11px;">⊕ 視点再調整 <span style="font-size:10px; opacity:0.6;">[R]</span></button>
+        <button class="btn" id="heatmapBtn"
+            style="margin-top:8px; font-size:13px; border-color:rgba(255,200,0,0.4); color:#ffd700;">🌡 ヒートマップ</button>
     </div>
 
     <div id="toast"></div>
@@ -810,7 +893,6 @@
         renderer.setSize(innerWidth, innerHeight);
         renderer.setPixelRatio(devicePixelRatio);
         renderer.shadowMap.enabled = true;
-        renderer.domElement.style.touchAction = 'none'; // iOS タッチ操作をPointer Eventsで完全制御
         document.body.appendChild(renderer.domElement);
 
         scene.add(new THREE.AmbientLight(0xffffff, 1.5));
@@ -831,7 +913,6 @@
         // State
         // ─────────────────────────────────────────────
         let targetMeshes = [];
-        let originalGeometries = [];
         const HISTORY_MAX = 30;
         let history = [];
         let mode = 'none';
@@ -871,6 +952,95 @@
             wireframeMeshes = [];
         }
 
+        // ─────────────────────────────────────────────
+        // ヒートマップ（高さ→色マッピング）
+        // ─────────────────────────────────────────────
+        let heatmapActive = false;
+        const _origMaterials = new Map();
+
+        // ヒートマップ用ShaderMaterial生成
+        // フラグメントシェーダーでワールドY座標を直接使って色計算。
+        // 頂点カラー補間方式だと三角形分割の対角線方向に色が引っ張られるバグを根絶。
+        function _makeHeatShader(yMin, yMax) {
+            return new THREE.ShaderMaterial({
+                side: THREE.DoubleSide,
+                uniforms: {
+                    uYMin: { value: yMin },
+                    uYMax: { value: yMax }
+                },
+                vertexShader: `
+                    varying float vWorldY;
+                    void main() {
+                        vec4 worldPos = modelMatrix * vec4(position, 1.0);
+                        vWorldY = worldPos.y;
+                        gl_Position = projectionMatrix * viewMatrix * worldPos;
+                    }
+                `,
+                fragmentShader: `
+                    uniform float uYMin;
+                    uniform float uYMax;
+                    varying float vWorldY;
+                    void main() {
+                        float t = clamp((vWorldY - uYMin) / max(uYMax - uYMin, 0.0001), 0.0, 1.0);
+                        // 青→シアン→黄緑→黄→赤 の4段階グラデーション
+                        vec3 col;
+                        if (t < 0.25) {
+                            float s = t / 0.25;
+                            col = vec3(0.0, s, 1.0);
+                        } else if (t < 0.5) {
+                            float s = (t - 0.25) / 0.25;
+                            col = vec3(0.0, 1.0, 1.0 - s);
+                        } else if (t < 0.75) {
+                            float s = (t - 0.5) / 0.25;
+                            col = vec3(s, 1.0, 0.0);
+                        } else {
+                            float s = (t - 0.75) / 0.25;
+                            col = vec3(1.0, 1.0 - s, 0.0);
+                        }
+                        gl_FragColor = vec4(col, 1.0);
+                    }
+                `
+            });
+        }
+
+        function setHeatmap(enabled) {
+            heatmapActive = enabled;
+            const btn = document.getElementById('heatmapBtn');
+            if (enabled) {
+                if (targetMeshes.length === 0) { toast('先にファイルを読み込んでね', true); heatmapActive = false; return; }
+                btn.style.background = 'rgba(255,200,0,0.18)';
+                btn.style.borderColor = '#ffd700';
+                btn.style.color = '#ffd700';
+                btn.textContent = '🌡 ヒートマップ ON';
+                const bb = getWorldBBox(targetMeshes);
+                if (!bb) return;
+                const heatMat = _makeHeatShader(bb.minY, bb.maxY);
+                targetMeshes.forEach(m => {
+                    _origMaterials.set(m.uuid, m.material);
+                    // ShaderMaterialはワールドYをフラグメントで計算→頂点カラー不要
+                    m.material = heatMat;
+                });
+            } else {
+                btn.style.background = '';
+                btn.style.borderColor = 'rgba(255,200,0,0.4)';
+                btn.style.color = '#ffd700';
+                btn.textContent = '🌡 ヒートマップ';
+                targetMeshes.forEach(m => {
+                    if (_origMaterials.has(m.uuid)) {
+                        m.material.dispose();
+                        m.material = _origMaterials.get(m.uuid);
+                        _origMaterials.delete(m.uuid);
+                    }
+                });
+            }
+        }
+
+        function resetHeatmap() {
+            if (heatmapActive) setHeatmap(false);
+            heatmapActive = false;
+            _origMaterials.clear();
+        }
+
 
         function findLoops(edges) {
             const adj = new Map();
@@ -891,10 +1061,43 @@
                 }
                 if (loop.length > 2) loops.push(loop);
             });
-            return loops;
+
+            // 断片ループのマージ：同一平面（法線・距離が近い）のループを統合
+            // 球体カットで発生する分岐点起因の断片ループに対処
+            const merged = [];
+            const usedIdx = new Set();
+            for (let i = 0; i < loops.length; i++) {
+                if (usedIdx.has(i)) continue;
+                let combined = loops[i].slice();
+                // 法線推定（3点で計算）
+                const getNormal = (loop) => {
+                    if (loop.length < 3) return null;
+                    const a = new THREE.Vector3(...loop[0]);
+                    const b = new THREE.Vector3(...loop[Math.floor(loop.length/3)]);
+                    const c = new THREE.Vector3(...loop[Math.floor(loop.length*2/3)]);
+                    return b.sub(a).cross(c.clone().sub(a)).normalize();
+                };
+                const nA = getNormal(loops[i]);
+                if (nA) {
+                    const dA = nA.dot(new THREE.Vector3(...loops[i][0]));
+                    for (let j = i + 1; j < loops.length; j++) {
+                        if (usedIdx.has(j)) continue;
+                        const nB = getNormal(loops[j]);
+                        if (!nB) continue;
+                        const dB = nB.dot(new THREE.Vector3(...loops[j][0]));
+                        // 法線がほぼ平行かつ同一平面上なら同じ穴の断片とみなす
+                        if (Math.abs(Math.abs(nA.dot(nB)) - 1) < 0.05 && Math.abs(dA - dB) < 0.05) {
+                            combined = combined.concat(loops[j]);
+                            usedIdx.add(j);
+                        }
+                    }
+                }
+                usedIdx.add(i);
+                merged.push(combined);
+            }
+            return merged.length > 0 ? merged : loops;
         }
 
-        let sealPatches = []; 
         function showSealWireframe(patchGeo) {
             const old = scene.getObjectByName('sealWireframe');
             if (old) scene.remove(old);
@@ -917,7 +1120,7 @@
         // ─────────────────────────────────────────────
         // 【VolChe v1.006 最終形態】V1.7ループ抽出 ＋ 垂直・水平密閉
         // ─────────────────────────────────────────────
-        function sealHoles(geo) {
+        function sealHoles(geo, silent = false) {
             const tempGeo = geo.toNonIndexed();
             const posAttr = tempGeo.attributes.position;
 
@@ -964,9 +1167,15 @@
             const patchPos = [];
 
             loops.forEach(loop => {
-                let avgX = 0, avgY = 0, avgZ = 0;
-                loop.forEach(pt => { avgX += pt[0]; avgY += pt[1]; avgZ += pt[2]; });
-                const cX = avgX / loop.length, cY = avgY / loop.length, cZ = avgZ / loop.length;
+                // 重心をBBox中心で計算（頂点平均より断片ループに強い）
+                // 頂点分布が不均一でも穴の中心に近い点が得られる
+                let lMinX=Infinity,lMaxX=-Infinity,lMinY=Infinity,lMaxY=-Infinity,lMinZ=Infinity,lMaxZ=-Infinity;
+                loop.forEach(pt => {
+                    if(pt[0]<lMinX)lMinX=pt[0]; if(pt[0]>lMaxX)lMaxX=pt[0];
+                    if(pt[1]<lMinY)lMinY=pt[1]; if(pt[1]>lMaxY)lMaxY=pt[1];
+                    if(pt[2]<lMinZ)lMinZ=pt[2]; if(pt[2]>lMaxZ)lMaxZ=pt[2];
+                });
+                const cX=(lMinX+lMaxX)/2, cY=(lMinY+lMaxY)/2, cZ=(lMinZ+lMaxZ)/2;
                 const pc = new THREE.Vector3(cX, cY, cZ);
 
                 // ── キャップの外向き法線を保証 ──────────────────────────
@@ -994,8 +1203,8 @@
             const patchGeo = new THREE.BufferGeometry();
             patchGeo.setAttribute('position', new THREE.Float32BufferAttribute(patchPos, 3));
 
-            showSealWireframe(patchGeo);
-            if (typeof updateVisualCap === 'function') updateVisualCap(patchGeo);
+            if (!silent) showSealWireframe(patchGeo);
+            if (!silent && typeof updateVisualCap === 'function') updateVisualCap(patchGeo);
 
             try {
                 return BufferGeometryUtils.mergeGeometries([tempGeo, patchGeo]);
@@ -1034,20 +1243,9 @@
 
         // NaN頂点を除外してY方向の実際の範囲を取得
         function getMeshYRange() {
-            let minY = Infinity, maxY = -Infinity;
-            const v = new THREE.Vector3();
-            targetMeshes.forEach(m => {
-                const pos = m.geometry.attributes.position;
-                const mat = m.matrixWorld;
-                for (let i = 0; i < pos.count; i++) {
-                    v.fromBufferAttribute(pos, i);
-                    if (isNaN(v.x) || isNaN(v.y) || isNaN(v.z)) continue;
-                    v.applyMatrix4(mat);
-                    if (v.y < minY) minY = v.y;
-                    if (v.y > maxY) maxY = v.y;
-                }
-            });
-            return { minY: isFinite(minY) ? minY : 0, maxY: isFinite(maxY) ? maxY : 1 };
+            modelGroup.updateMatrixWorld(true);
+            const bb = getWorldBBox(targetMeshes);
+            return bb ? { minY: bb.minY, maxY: bb.maxY } : { minY: 0, maxY: 1 };
         }
 
         function updateCutterPlane() {
@@ -1107,7 +1305,6 @@
             if (targetMeshes.length === 0) { toast('先にファイルを読み込んでね', true); return; }
 
             modelGroup.updateMatrixWorld(true);
-            sealPatches = [];
             pushHistory();
             setStatus('CUTTING...');
             toast('カット実行中...');
@@ -1205,7 +1402,6 @@
             toast('カット完了！▶ 体積計算ボタンで再計算してね');
  
 // --- カット後の形を新しい基準にする ---
-originalGeometries = targetMeshes.map(m => m.geometry.clone());
 
         // カット後に自動で座標正規化（カメラ位置維持）
         setTimeout(() => autoResetRollKeepCamera(), 0);
@@ -1262,38 +1458,49 @@ originalGeometries = targetMeshes.map(m => m.geometry.clone());
         }
 
         // ─────────────────────────────────────────────
+        // ユーティリティ：ワールド座標NaN除外BBox
+        // 戻り値 null = 有効頂点なし
+        // ─────────────────────────────────────────────
+        function getWorldBBox(meshes) {
+            let minX=Infinity,minY=Infinity,minZ=Infinity,maxX=-Infinity,maxY=-Infinity,maxZ=-Infinity;
+            const v = new THREE.Vector3();
+            meshes.forEach(m => {
+                const pos = m.geometry.attributes.position, mat = m.matrixWorld;
+                for (let i = 0; i < pos.count; i++) {
+                    v.fromBufferAttribute(pos, i);
+                    if (isNaN(v.x)||isNaN(v.y)||isNaN(v.z)) continue;
+                    v.applyMatrix4(mat);
+                    if(v.x<minX)minX=v.x; if(v.x>maxX)maxX=v.x;
+                    if(v.y<minY)minY=v.y; if(v.y>maxY)maxY=v.y;
+                    if(v.z<minZ)minZ=v.z; if(v.z>maxZ)maxZ=v.z;
+                }
+            });
+            if (!isFinite(minX)) return null;
+            return { minX, minY, minZ, maxX, maxY, maxZ,
+                     cx:(minX+maxX)/2, cy:(minY+maxY)/2, cz:(minZ+maxZ)/2,
+                     sX:maxX-minX, sY:maxY-minY, sZ:maxZ-minZ };
+        }
+
+        // ─────────────────────────────────────────────
         // Camera views
         // ─────────────────────────────────────────────
         let topViewAngle = 0; // 俯瞰90°回転カウンター
 
         function setCam(type) {
             if (targetMeshes.length === 0) return;
-            // NaN除外で正確なサイズを取得
-            let mnX=Infinity,mnY=Infinity,mnZ=Infinity,mxX=-Infinity,mxY=-Infinity,mxZ=-Infinity;
-            const _sv = new THREE.Vector3();
-            targetMeshes.forEach(m => {
-                const pos = m.geometry.attributes.position, mat = m.matrixWorld;
-                for (let i = 0; i < pos.count; i++) {
-                    _sv.fromBufferAttribute(pos, i);
-                    if (isNaN(_sv.x)||isNaN(_sv.y)||isNaN(_sv.z)) continue;
-                    _sv.applyMatrix4(mat);
-                    if(_sv.x<mnX)mnX=_sv.x; if(_sv.x>mxX)mxX=_sv.x;
-                    if(_sv.y<mnY)mnY=_sv.y; if(_sv.y>mxY)mxY=_sv.y;
-                    if(_sv.z<mnZ)mnZ=_sv.z; if(_sv.z>mxZ)mxZ=_sv.z;
-                }
-            });
-            if (!isFinite(mnX)) return;
-            const center = computeCentroid(targetMeshes);
-            const dist = Math.max(mxX-mnX, mxY-mnY, mxZ-mnZ) * 1.8;
+            modelGroup.updateMatrixWorld(true);
+            const bb = getWorldBBox(targetMeshes);
+            if (!bb) return;
+            const center = new THREE.Vector3(bb.cx, bb.cy, bb.cz);
+            const dist = Math.max(bb.sX, bb.sY, bb.sZ) * 1.8;
             controls.target.copy(center);
             camera.up.set(0, 1, 0);
-            if (type === 'top') camera.position.set(center.x, center.y + dist, center.z + 0.001); // 真上（平面）
+            if (type === 'top')   camera.position.set(center.x, center.y + dist, center.z + 0.001);
             if (type === 'front') camera.position.set(center.x, center.y, center.z + dist);
             if (type === 'right') camera.position.set(center.x + dist, center.y, center.z);
-            if (type === 'left') camera.position.set(center.x - dist, center.y, center.z);
-            if (type === 'back') camera.position.set(center.x, center.y, center.z - dist);
+            if (type === 'left')  camera.position.set(center.x - dist, center.y, center.z);
+            if (type === 'back')  camera.position.set(center.x, center.y, center.z - dist);
             if (type === 'overview') {
-                // 押すたびに90°回転した斜め俯瞰
                 topViewAngle = (topViewAngle + 90) % 360;
                 const rad = THREE.MathUtils.degToRad(topViewAngle);
                 camera.position.set(
@@ -1306,82 +1513,58 @@ originalGeometries = targetMeshes.map(m => m.geometry.clone());
         }
 
         // ─────────────────────────────────────────────
-        // 視点再調整 ＋ オブジェクト原点リセット
-        // XZ中心・Y底面 → ワールド(0,0,0)に移動
+        // ユーティリティ：transform焼き付け ＋ XZ中心・Y底面を原点に移動
+        // reset系3関数の共通処理。戻り値 false = 有効頂点なし
         // ─────────────────────────────────────────────
-        function resetRoll() {
-
-            if (targetMeshes.length === 0) {
-                camera.up.set(0, 1, 0);
-                controls.update();
-                toast('視点を正立したよ ✓');
-                return;
-            }
-
-            // ── ★ transform（position/rotation/scale）を頂点に焼き付けてからリセット ──
-            // GLBはノードのscale情報を持ってくる。scale.set(1,1,1)する前に
-            // matrixWorldを頂点に焼き付けないと、スケールが消えて元サイズに戻る（F②/G④バグ）
+        function _bakeAndCenter() {
+            // GLB/FBXのノードtransformを頂点に焼き付け
             modelGroup.updateMatrixWorld(true);
             targetMeshes.forEach(m => {
                 m.updateMatrixWorld(true);
                 const mat = m.matrixWorld.clone();
-                // matrixWorldを分解してscale/rotation/positionが単位状態か確認
                 const _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3();
                 mat.decompose(_p, _q, _s);
                 const needsBake = Math.abs(_s.x-1)>1e-5 || Math.abs(_s.y-1)>1e-5 || Math.abs(_s.z-1)>1e-5
-                               || _p.lengthSq()>1e-8
-                               || Math.abs(_q.w-1)>1e-5;
+                               || _p.lengthSq()>1e-8 || Math.abs(_q.w-1)>1e-5;
                 if (needsBake) {
                     const pos = m.geometry.attributes.position;
-                    const _bv = new THREE.Vector3();
+                    const bv = new THREE.Vector3();
                     for (let i = 0; i < pos.count; i++) {
-                        _bv.fromBufferAttribute(pos, i);
-                        if (isNaN(_bv.x)) continue;
-                        _bv.applyMatrix4(mat);
-                        pos.setXYZ(i, _bv.x, _bv.y, _bv.z);
+                        bv.fromBufferAttribute(pos, i);
+                        if (isNaN(bv.x)) continue;
+                        bv.applyMatrix4(mat);
+                        pos.setXYZ(i, bv.x, bv.y, bv.z);
                     }
                     pos.needsUpdate = true;
                     m.geometry.computeBoundingBox();
                     m.geometry.computeBoundingSphere();
                 }
-                m.position.set(0, 0, 0);
-                m.rotation.set(0, 0, 0);
-                m.scale.set(1, 1, 1);
+                m.position.set(0,0,0); m.rotation.set(0,0,0); m.scale.set(1,1,1);
             });
-            modelGroup.position.set(0, 0, 0);
-            modelGroup.rotation.set(0, 0, 0);
-            modelGroup.scale.set(1, 1, 1);
+            modelGroup.position.set(0,0,0); modelGroup.rotation.set(0,0,0); modelGroup.scale.set(1,1,1);
             modelGroup.updateMatrixWorld(true);
 
-            // ① NaN除外でBBoxを取得してオフセット計算
-            let rMinX=Infinity,rMinY=Infinity,rMinZ=Infinity,rMaxX=-Infinity,rMaxY=-Infinity,rMaxZ=-Infinity;
-            const _rv = new THREE.Vector3();
+            // NaN除外ローカルBBoxでオフセット計算（焼き付け後はローカル=ワールド）
+            let minX=Infinity,minY=Infinity,minZ=Infinity,maxX=-Infinity,maxZ=-Infinity;
+            const rv = new THREE.Vector3();
             targetMeshes.forEach(m => {
                 const pos = m.geometry.attributes.position;
                 for (let i = 0; i < pos.count; i++) {
-                    _rv.fromBufferAttribute(pos, i);
-                    if (isNaN(_rv.x)||isNaN(_rv.y)||isNaN(_rv.z)) continue;
-                    if(_rv.x<rMinX)rMinX=_rv.x; if(_rv.x>rMaxX)rMaxX=_rv.x;
-                    if(_rv.y<rMinY)rMinY=_rv.y; if(_rv.y>rMaxY)rMaxY=_rv.y;
-                    if(_rv.z<rMinZ)rMinZ=_rv.z; if(_rv.z>rMaxZ)rMaxZ=_rv.z;
+                    rv.fromBufferAttribute(pos, i);
+                    if (isNaN(rv.x)||isNaN(rv.y)||isNaN(rv.z)) continue;
+                    if(rv.x<minX)minX=rv.x; if(rv.x>maxX)maxX=rv.x;
+                    if(rv.y<minY)minY=rv.y;
+                    if(rv.z<minZ)minZ=rv.z; if(rv.z>maxZ)maxZ=rv.z;
                 }
             });
-            if (!isFinite(rMinX)) return;
-            const centerX = (rMinX+rMaxX)/2, centerZ = (rMinZ+rMaxZ)/2;
+            if (!isFinite(minX)) return false;
 
-            // すでに底面Y=0・XZ中心なら頂点移動をスキップ（連打対策）
-            const alreadyAtOrigin =
-                Math.abs(centerX) < 1e-4 &&
-                Math.abs(rMinY) < 1e-4 &&
-                Math.abs(centerZ) < 1e-4;
-
-            if (!alreadyAtOrigin) {
-                const offset = new THREE.Vector3(-centerX, -rMinY, -centerZ);
-
-                // ② 頂点を直接オフセット（transform は単位行列なのでapplyMatrix4不要）
+            const cx=(minX+maxX)/2, cz=(minZ+maxZ)/2;
+            if (Math.abs(cx)>1e-4 || Math.abs(minY)>1e-4 || Math.abs(cz)>1e-4) {
+                const offset = new THREE.Vector3(-cx, -minY, -cz);
+                const v = new THREE.Vector3();
                 targetMeshes.forEach(m => {
                     const pos = m.geometry.attributes.position;
-                    const v = new THREE.Vector3();
                     for (let i = 0; i < pos.count; i++) {
                         v.fromBufferAttribute(pos, i);
                         if (isNaN(v.x)) continue;
@@ -1390,52 +1573,55 @@ originalGeometries = targetMeshes.map(m => m.geometry.clone());
                     }
                     pos.needsUpdate = true;
                     m.geometry.computeVertexNormals();
-                    // ② バウンディングスフィアを強制更新
-                    // 更新しないと古い境界球でフラスタムカリングされて一定角度で消える
                     m.geometry.computeBoundingBox();
                     m.geometry.computeBoundingSphere();
                 });
             }
-
-            // ③ 焼き付け後のジオメトリを新しい基準として保存（連打しても同じ位置から計算）
-            originalGeometries = targetMeshes.map(m => m.geometry.clone());
             modelGroup.updateMatrixWorld(true);
+            return true;
+        }
 
-            // ④ カメラも整える
-            camera.up.set(0, 1, 0);
-            fit();
-
-            // ⑤ 頂点焼き付け後の新しいBBoxでカット平面を再初期化
-            //    （resetRoll後はオブジェクトが移動しているため再計算が必要）
-            modelGroup.updateMatrixWorld(true);
-            const newBox = new THREE.Box3().setFromObject(modelGroup);
-            if (cuttingPlane && !newBox.isEmpty()) {
-                const newSize = newBox.getSize(new THREE.Vector3());
-                cuttingPlane.scale.set(newSize.length() * 2, newSize.length() * 2, 1);
-                // スライダーを0にリセットしてから位置を再計算
-                document.getElementById('cut-height').value = '0';
-                document.getElementById('cut-tilt-x').value = '0';
-                document.getElementById('cut-tilt-z').value = '0';
-                updateCutterPlane();
-            }
-
-            document.getElementById('scale-hint').style.display = 'none';
-            toast('原点リセット完了！▶ 体積計算ボタンで計算してね ✓');
-
-            // ---- volume表示リセット（視点再調整で座標が変わるため再計算を促す） ----
-            // 正しいワークフロー：ロード→視点再調整→編集→視点再調整→体積計算
+        // ユーティリティ：体積表示・シール可視化・ワイヤーフレームをリセット
+        function _clearVolumeDisplay() {
             document.getElementById('result').textContent = '---';
-
-            // ---- 閉鎖表示（ワイヤー＆面）を削除 ----
             const cap = scene.getObjectByName('visualCap');
             if (cap) scene.remove(cap);
-
-            const sealWire = scene.getObjectByName('sealWireframe');
-            if (sealWire) scene.remove(sealWire);
-
-            // ---- 体積計算時の緑ワイヤーフレームも削除 ----
+            const sw = scene.getObjectByName('sealWireframe');
+            if (sw) scene.remove(sw);
             clearWireframe();
+        }
 
+        // ユーティリティ：cutterPlaneをオブジェクト現在サイズに合わせて再初期化
+        function _resetCutterPlane() {
+            if (!cuttingPlane) return;
+            modelGroup.updateMatrixWorld(true);
+            const box = new THREE.Box3().setFromObject(modelGroup);
+            if (box.isEmpty()) return;
+            const sz = box.getSize(new THREE.Vector3());
+            cuttingPlane.scale.set(sz.length() * 2, sz.length() * 2, 1);
+            document.getElementById('cut-height').value = '0';
+            document.getElementById('cut-tilt-x').value = '0';
+            document.getElementById('cut-tilt-z').value = '0';
+            updateCutterPlane();
+        }
+
+        // ─────────────────────────────────────────────
+        // 視点再調整 ＋ オブジェクト原点リセット（手動ボタン / [R]キー）
+        // ─────────────────────────────────────────────
+        function resetRoll() {
+            if (targetMeshes.length === 0) {
+                camera.up.set(0, 1, 0);
+                controls.update();
+                toast('視点を正立したよ ✓');
+                return;
+            }
+            if (!_bakeAndCenter()) return;
+            camera.up.set(0, 1, 0);
+            fit();
+            _resetCutterPlane();
+            document.getElementById('scale-hint').style.display = 'none';
+            toast('原点リセット完了！▶ 体積計算ボタンで計算してね ✓');
+            _clearVolumeDisplay();
         }
 
         // ─────────────────────────────────────────────
@@ -1500,9 +1686,10 @@ originalGeometries = targetMeshes.map(m => m.geometry.clone());
             const name = file.name.toLowerCase();
 
             while (modelGroup.children.length > 0) modelGroup.remove(modelGroup.children[0]);
-            targetMeshes = []; originalGeometries = []; history = [];
+            targetMeshes = []; history = [];
             updateUndoBtn(); clearMeasure(); setMode('none');
             clearWireframe();
+            resetHeatmap();
             setStatus('LOADING...');
 
             const setup = (obj) => {
@@ -1510,7 +1697,6 @@ originalGeometries = targetMeshes.map(m => m.geometry.clone());
                     if (!c.isMesh) return;
                     setupMesh(c);
                     targetMeshes.push(c);
-                    originalGeometries.push(c.geometry.clone());
                 });
                 modelGroup.add(obj);
 
@@ -1545,59 +1731,16 @@ originalGeometries = targetMeshes.map(m => m.geometry.clone());
             }
         }
 
-        // ─────────────────────────────────────────────
-        // 重心計算（NaN除外・ワールド座標対応）
-        // ─────────────────────────────────────────────
-        function computeCentroid(meshes) {
-            const sum = new THREE.Vector3();
-            const v = new THREE.Vector3();
-            let count = 0;
-            meshes.forEach(m => {
-                const pos = m.geometry.attributes.position;
-                const mat = m.matrixWorld;
-                for (let i = 0; i < pos.count; i++) {
-                    v.fromBufferAttribute(pos, i);
-                    if (isNaN(v.x) || isNaN(v.y) || isNaN(v.z)) continue;
-                    v.applyMatrix4(mat);
-                    sum.add(v);
-                    count++;
-                }
-            });
-            return count > 0 ? sum.divideScalar(count) : new THREE.Vector3();
-        }
-
         function fit() {
-            // NaN除外で正確なBBoxを取得
-            let minX = Infinity, minY = Infinity, minZ = Infinity;
-            let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
-            const _v = new THREE.Vector3();
-            targetMeshes.forEach(m => {
-                m.updateMatrixWorld(true);
-                const pos = m.geometry.attributes.position;
-                const mat = m.matrixWorld;
-                for (let i = 0; i < pos.count; i++) {
-                    _v.fromBufferAttribute(pos, i);
-                    if (isNaN(_v.x) || isNaN(_v.y) || isNaN(_v.z)) continue;
-                    _v.applyMatrix4(mat);
-                    if (_v.x < minX) minX = _v.x; if (_v.x > maxX) maxX = _v.x;
-                    if (_v.y < minY) minY = _v.y; if (_v.y > maxY) maxY = _v.y;
-                    if (_v.z < minZ) minZ = _v.z; if (_v.z > maxZ) maxZ = _v.z;
-                }
-            });
-            if (!isFinite(minX)) return;
+            modelGroup.updateMatrixWorld(true);
+            const bb = getWorldBBox(targetMeshes);
+            if (!bb) return;
 
-            const sX = maxX - minX, sY = maxY - minY, sZ = maxZ - minZ;
-            const d = Math.max(sX, sY, sZ) * 1.6;
+            const d = Math.max(bb.sX, bb.sY, bb.sZ) * 1.6;
+            const c = new THREE.Vector3(bb.cx, bb.cy, bb.cz);
+            const objSize = Math.max(bb.sX, bb.sY, bb.sZ);
 
-            // ② BBox中心をターゲットに使用（頂点密度バイアスを排除）
-            // computeCentroid()は密度依存で軸がズレるためBBox中心が安全
-            const c = new THREE.Vector3((minX+maxX)/2, (minY+maxY)/2, (minZ+maxZ)/2);
-
-            const objSize = Math.max(sX, sY, sZ);
-
-            // near は 0.01 固定（最初のロード時と同じ値をキープ）
-            // 変えると深度バッファ精度が崩れるのでいじらない
-            // far だけオブジェクトサイズに追従させて見切れを防ぐ
+            // near固定・farだけオブジェクトサイズに追従（深度バッファ精度維持）
             camera.near = 0.01;
             camera.far  = Math.max(objSize * 1000, 100000);
             camera.updateProjectionMatrix();
@@ -1605,8 +1748,6 @@ originalGeometries = targetMeshes.map(m => m.geometry.clone());
             camera.up.set(0, 1, 0);
             camera.position.set(c.x, c.y + d * 0.6, c.z + d);
             controls.target.copy(c);
-            // ② minDistance=0だとカメラがtarget点を突き抜けて消失する
-            // オブジェクトサイズの0.2%を最小距離に設定（50mなら10cm）
             controls.minDistance = objSize * 0.002;
             controls.maxDistance = Infinity;
             controls.update();
@@ -1619,8 +1760,7 @@ originalGeometries = targetMeshes.map(m => m.geometry.clone());
                 cuttingPlane.visible = false;
                 scene.add(cuttingPlane);
             }
-            // b.getSize() を使わずNaN除外済みサイズで設定
-            const diagSize = Math.sqrt(sX*sX + sY*sY + sZ*sZ);
+            const diagSize = Math.sqrt(bb.sX*bb.sX + bb.sY*bb.sY + bb.sZ*bb.sZ);
             cuttingPlane.scale.set(diagSize * 2, diagSize * 2, 1);
             updateCutterPlane();
         }
@@ -1628,44 +1768,294 @@ originalGeometries = targetMeshes.map(m => m.geometry.clone());
         // ─────────────────────────────────────────────
         // メッシュ簡略化
         // ─────────────────────────────────────────────
-        function simplifyMeshes() {
-            if (targetMeshes.length === 0) { toast('先にファイルを読み込んでね', true); return; }
-            const pct = parseInt(document.getElementById('simplifySlider').value) / 100;
-            pushHistory();
-            setStatus('SIMPLIFYING...');
-            let totalBefore = 0, totalAfter = 0;
+        // ─────────────────────────────────────────────
+        // ─────────────────────────────────────────────
+        // ボクセル化エンジン（Voxelize）
+        // ─────────────────────────────────────────────
+        let _simplifyPreviewGeos = null;  // プレビュー中のボクセルジオメトリ
+        let _simplifyPreviewObj  = null;  // シーン上のプレビュー表示オブジェクト
+        let _voxelVolume = 0;             // プレビュー時に計算した体積（m³）
 
-            // モデル全体のバウンディングボックスからvoxelサイズを決定
-            const worldBox = new THREE.Box3().setFromObject(modelGroup);
-            const worldSize = worldBox.getSize(new THREE.Vector3());
-            const maxDim = Math.max(worldSize.x, worldSize.y, worldSize.z);
-            // pct=0%→0.001m、pct=95%→maxDim*0.08 程度にスケール
-            const tolerance = 0.001 + pct * maxDim * 0.02;
+        // スライダー値 → ボクセルサイズ（メートル）
+        // スライダー 2～50 → 2cm～50cm（固定値）
+        function _getVoxelSize() {
+            return parseInt(document.getElementById('simplifySlider').value) / 100;
+        }
 
-            targetMeshes.forEach(m => {
-                const geom = m.geometry;
-                totalBefore += geom.attributes.position.count;
+        function _updateSimplifySizeHint() {
+            const hint = document.getElementById('simplify-size-hint');
+            const valEl = document.getElementById('simplifyVal');
+            if (!hint) return;
+            const cm = parseInt(document.getElementById('simplifySlider').value);
+            if (valEl) valEl.textContent = cm + ' cm';
+            hint.textContent = `XZグリッド ${cm}cm 角で積算`;
+        }
 
-                // ① ボクセルグリッドマージ：toleranceの範囲内の頂点を1点に集約
-                //    → 表面形状を保ちながら均一に間引く（穴が空かない）
-                const merged = BufferGeometryUtils.mergeVertices(geom, tolerance);
-                merged.computeVertexNormals();
+        // ─────────────────────────────────────────────
+        // 高さマップ方式（2.5D）体積計算
+        // geos: ワールド座標済みのBufferGeometry配列（sealHoles後）
+        // ─────────────────────────────────────────────
+        function _buildVoxelGeoFromGeos(geos, voxelSize) {
+            // 全頂点からBBoxを計算
+            let minX=Infinity,maxX=-Infinity,minZ=Infinity,maxZ=-Infinity;
+            const allY = [];
+            geos.forEach(geo => {
+                const pos = geo.attributes.position;
+                for (let i = 0; i < pos.count; i++) {
+                    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+                    if (isNaN(x)||isNaN(y)||isNaN(z)) continue;
+                    if (x<minX) minX=x; if (x>maxX) maxX=x;
+                    if (z<minZ) minZ=z; if (z>maxZ) maxZ=z;
+                    allY.push(y);
+                }
+            });
+            if (allY.length === 0) return null;
 
-                // ② NonIndexed化（体積計算・NaN消去のため）
-                const result = merged.toNonIndexed();
-                result.computeVertexNormals();
+            const nx = Math.min(Math.ceil((maxX - minX) / voxelSize), 500);
+            const nz = Math.min(Math.ceil((maxZ - minZ) / voxelSize), 500);
+            const cellArea = voxelSize * voxelSize;
 
-                // ③ 縮退面除去
-                const cleaned = removeDegenerate(result);
-                m.geometry.dispose();
-                m.geometry = cleaned;
-                totalAfter += cleaned.attributes.position.count;
+            // ① 高さマップ作成：三角形ラスタライズ方式
+            // 頂点サンプリングだと斜面の中間セルに頂点が落ちずすっぽ抜ける。
+            // 各三角形をXZグリッドに投影し、三角形が通過する全セルにYを補間して書き込む。
+            const heightMap = new Float32Array(nx * nz).fill(-Infinity);
+
+            // 三角形がAABBで覆うセル範囲を走査し、XZ内側判定＋Y線形補間で書き込む
+            function rasterizeTri(ax,ay,az, bx,by,bz, cx,cy,cz) {
+                // XZ範囲のAABB
+                const x0 = Math.min(ax,bx,cx), x1 = Math.max(ax,bx,cx);
+                const z0 = Math.min(az,bz,cz), z1 = Math.max(az,bz,cz);
+                const ixMin = Math.max(0, Math.floor((x0-minX)/voxelSize));
+                const ixMax = Math.min(nx-1, Math.floor((x1-minX)/voxelSize));
+                const izMin = Math.max(0, Math.floor((z0-minZ)/voxelSize));
+                const izMax = Math.min(nz-1, Math.floor((z1-minZ)/voxelSize));
+
+                for (let iz=izMin; iz<=izMax; iz++) {
+                    for (let ix=ixMin; ix<=ixMax; ix++) {
+                        // セル中心のXZ座標
+                        const px = minX + (ix+0.5)*voxelSize;
+                        const pz = minZ + (iz+0.5)*voxelSize;
+
+                        // 重心座標でXZ内側判定
+                        const denom = (bz-cz)*(ax-cx) + (cx-bx)*(az-cz);
+                        if (Math.abs(denom) < 1e-12) continue;
+                        const u = ((bz-cz)*(px-cx) + (cx-bx)*(pz-cz)) / denom;
+                        const v = ((cz-az)*(px-cx) + (ax-cx)*(pz-cz)) / denom;
+                        const w = 1 - u - v;
+                        if (u < -0.01 || v < -0.01 || w < -0.01) continue;
+
+                        // Y値を重心補間
+                        const y = u*ay + v*by + w*cy;
+                        const id = iz*nx+ix;
+                        if (y > heightMap[id]) heightMap[id] = y;
+                    }
+                }
+            }
+
+            geos.forEach(geo => {
+                const pos = geo.attributes.position;
+                const idx = geo.index;
+                if (idx) {
+                    // インデックス付きジオメトリ
+                    for (let i = 0; i < idx.count; i += 3) {
+                        const a=idx.getX(i), b=idx.getX(i+1), c=idx.getX(i+2);
+                        const ax=pos.getX(a),ay=pos.getY(a),az=pos.getZ(a);
+                        const bx=pos.getX(b),by=pos.getY(b),bz=pos.getZ(b);
+                        const cx=pos.getX(c),cy=pos.getY(c),cz=pos.getZ(c);
+                        if (isNaN(ax)||isNaN(bx)||isNaN(cx)) continue;
+                        rasterizeTri(ax,ay,az, bx,by,bz, cx,cy,cz);
+                    }
+                } else {
+                    // 非インデックス（3頂点ずつ三角形）
+                    for (let i = 0; i < pos.count; i += 3) {
+                        const ax=pos.getX(i),  ay=pos.getY(i),  az=pos.getZ(i);
+                        const bx=pos.getX(i+1),by=pos.getY(i+1),bz=pos.getZ(i+1);
+                        const cx=pos.getX(i+2),cy=pos.getY(i+2),cz=pos.getZ(i+2);
+                        if (isNaN(ax)||isNaN(bx)||isNaN(cx)) continue;
+                        rasterizeTri(ax,ay,az, bx,by,bz, cx,cy,cz);
+                    }
+                }
             });
 
-            const ratio = ((1 - totalAfter / totalBefore) * 100).toFixed(1);
-            setStatus('SIMPLIFIED');
-            updateVertCount();
-            toast(`簡略化完了: ${totalBefore.toLocaleString()} → ${totalAfter.toLocaleString()} verts (${ratio}%削減)`);
+            // ② 地盤面 = heightMapに記録されたセルのY値下位2%の中央値
+            // ラスタライズ後はheightMapの実値を使う（頂点allYは斜面補間値が混入して下位5%がズレる）
+            const cellYs = [];
+            for (let i = 0; i < nx * nz; i++) {
+                if (heightMap[i] !== -Infinity) cellYs.push(heightMap[i]);
+            }
+            cellYs.sort((a, b) => a - b);
+            const p2end = Math.max(1, Math.floor(cellYs.length * 0.02));
+            const groundY = cellYs[Math.floor(p2end / 2)];
+
+            // ③ ゴーストセル除去（スパースメッシュの孤立頂点による幽霊ボクセル防止）
+            // 隣接有効セル数が2未満のセルを繰り返し侵食（Erosion）で除去。
+            // 球面メッシュのポールや対角頂点が飛び込んだ孤立セルを確実に除去する。
+            for (let ep = 0; ep < 3; ep++) {
+                const rm = new Uint8Array(nx * nz);
+                let anyRm = false;
+                for (let iz = 0; iz < nz; iz++) {
+                    for (let ix = 0; ix < nx; ix++) {
+                        if (heightMap[iz*nx+ix] === -Infinity) continue;
+                        let cnt = 0;
+                        for (let dz=-1;dz<=1;dz++) for (let dx=-1;dx<=1;dx++) {
+                            if (!dz&&!dx) continue;
+                            const niz=iz+dz,nix=ix+dx;
+                            if (niz<0||niz>=nz||nix<0||nix>=nx) continue;
+                            if (heightMap[niz*nx+nix] !== -Infinity) cnt++;
+                        }
+                        if (cnt < 2) { rm[iz*nx+ix]=1; anyRm=true; }
+                    }
+                }
+                if (!anyRm) break;
+                for (let i=0;i<nx*nz;i++) if (rm[i]) heightMap[i]=-Infinity;
+            }
+
+            // ④ 外側マーキング：境界から BFS で -Infinity セルを「外側」に塗る
+            // 土山前提なので「グリッド端から繋がっている -Infinity 領域 = 外側」
+            // 中央の完全空洞（ドーナツ穴）は外側と繋がっていれば外側マーク、
+            // 繋がっていなければ内側（LiDAR欠損）として補完する。
+            const OUTSIDE = 2, INSIDE_HOLE = 1;
+            const cellState = new Uint8Array(nx * nz); // 0=有効, 1=内側穴, 2=外側
+
+            // まず -Infinity セルを全部候補として INSIDE_HOLE にしておく
+            for (let i = 0; i < nx * nz; i++) {
+                if (heightMap[i] === -Infinity) cellState[i] = INSIDE_HOLE;
+            }
+
+            // 境界に接する -Infinity セルを外側シードとして BFS
+            const queue = [];
+            const enqueue = (iz, ix) => {
+                const id = iz * nx + ix;
+                if (cellState[id] === INSIDE_HOLE) {
+                    cellState[id] = OUTSIDE;
+                    queue.push(iz * nx + ix);
+                }
+            };
+            for (let ix = 0; ix < nx; ix++) { enqueue(0, ix); enqueue(nz-1, ix); }
+            for (let iz = 0; iz < nz; iz++) { enqueue(iz, 0); enqueue(iz, nx-1); }
+
+            let head = 0;
+            while (head < queue.length) {
+                const id = queue[head++];
+                const iz = Math.floor(id / nx), ix = id % nx;
+                // 4近傍に伝播（対角は伝播しない→細い経路でも漏れにくい）
+                const neighbors = [
+                    [iz-1,ix],[iz+1,ix],[iz,ix-1],[iz,ix+1]
+                ];
+                for (const [niz, nix] of neighbors) {
+                    if (niz < 0 || niz >= nz || nix < 0 || nix >= nx) continue;
+                    const nid = niz * nx + nix;
+                    if (cellState[nid] === INSIDE_HOLE) {
+                        cellState[nid] = OUTSIDE;
+                        queue.push(nid);
+                    }
+                }
+            }
+
+            // cellState === INSIDE_HOLE のセルだけ補完対象
+            const isInterior = cellState; // INSIDE_HOLE(1) が内側穴
+
+            // ⑤ 内側の穴のみ補完（外側セルは完全スキップ・収束するまで最大50パス）
+            for (let pass = 0; pass < 50; pass++) {
+                let filled = false;
+                const tmp = heightMap.slice();
+                for (let iz = 0; iz < nz; iz++) {
+                    for (let ix = 0; ix < nx; ix++) {
+                        const id = iz*nx+ix;
+                        // INSIDE_HOLE(1) かつ未補完のセルだけ処理
+                        if (heightMap[id] !== -Infinity || isInterior[id] !== INSIDE_HOLE) continue;
+                        let sum = 0, cnt = 0;
+                        for (let dz=-1;dz<=1;dz++) for (let dx=-1;dx<=1;dx++) {
+                            if (!dz&&!dx) continue;
+                            const niz=iz+dz,nix=ix+dx;
+                            if (niz<0||niz>=nz||nix<0||nix>=nx) continue;
+                            const v = heightMap[niz*nx+nix];
+                            if (v !== -Infinity) { sum+=v; cnt++; }
+                        }
+                        if (cnt>0) { tmp[id]=sum/cnt; filled=true; }
+                    }
+                }
+                heightMap.set(tmp);
+                if (!filled) break;
+            }
+
+            // ⑤ 体積計算 & 平柱ジオメトリ生成（チャンク分割でWebGLバッファ上限対策）
+            // 1ボクセル = 6面 × 6頂点 × 3floats = 108 floats
+            // WebGLのインデックスなし上限は頂点数65536 → 1チャンクあたり最大5000ボクセルで余裕を持たせる
+            const MAX_VOXELS_PER_CHUNK = 5000;
+            let currentChunk = [];
+            const allChunks = [];
+            let volume = 0, cellCount = 0;
+
+            function flushChunk() {
+                if (currentChunk.length === 0) return;
+                const g = new THREE.BufferGeometry();
+                g.setAttribute('position', new THREE.Float32BufferAttribute(currentChunk, 3));
+                g.computeVertexNormals();
+                allChunks.push(g);
+                currentChunk = [];
+            }
+
+            let chunkVoxelCount = 0;
+            for (let iz = 0; iz < nz; iz++) {
+                for (let ix = 0; ix < nx; ix++) {
+                    const yTop = heightMap[iz*nx+ix];
+                    if (yTop === -Infinity) continue;
+                    const h = yTop - groundY;
+                    if (h <= 0) continue;
+                    volume += cellArea * h;
+                    cellCount++;
+
+                    const x0=minX+ix*voxelSize, x1=x0+voxelSize;
+                    const y0=groundY, y1=yTop;
+                    const z0=minZ+iz*voxelSize, z1=z0+voxelSize;
+
+                    // 上面
+                    currentChunk.push(x0,y1,z0, x1,y1,z0, x1,y1,z1, x0,y1,z0, x1,y1,z1, x0,y1,z1);
+                    // 下面
+                    currentChunk.push(x0,y0,z1, x1,y0,z1, x1,y0,z0, x0,y0,z1, x1,y0,z0, x0,y0,z0);
+                    // 前面z1
+                    currentChunk.push(x0,y0,z1, x0,y1,z1, x1,y1,z1, x0,y0,z1, x1,y1,z1, x1,y0,z1);
+                    // 後面z0
+                    currentChunk.push(x1,y0,z0, x1,y1,z0, x0,y1,z0, x1,y0,z0, x0,y1,z0, x0,y0,z0);
+                    // 右面x1
+                    currentChunk.push(x1,y0,z1, x1,y1,z1, x1,y1,z0, x1,y0,z1, x1,y1,z0, x1,y0,z0);
+                    // 左面x0
+                    currentChunk.push(x0,y0,z0, x0,y1,z0, x0,y1,z1, x0,y0,z0, x0,y1,z1, x0,y0,z1);
+
+                    chunkVoxelCount++;
+                    if (chunkVoxelCount >= MAX_VOXELS_PER_CHUNK) {
+                        flushChunk();
+                        chunkVoxelCount = 0;
+                    }
+                }
+            }
+            flushChunk(); // 残りをフラッシュ
+
+            if (allChunks.length === 0) return null;
+
+            // 複数チャンクをmergeして1つのジオメトリに（チャンクが1つなら直接返す）
+            let geo;
+            if (allChunks.length === 1) {
+                geo = allChunks[0];
+            } else {
+                // THREE.BufferGeometryUtils.mergeGeometries が使えない場合は手動結合
+                let totalLen = 0;
+                allChunks.forEach(g => { totalLen += g.attributes.position.array.length; });
+                const merged = new Float32Array(totalLen);
+                let offset = 0;
+                allChunks.forEach(g => {
+                    merged.set(g.attributes.position.array, offset);
+                    offset += g.attributes.position.array.length;
+                    g.dispose();
+                });
+                geo = new THREE.BufferGeometry();
+                geo.setAttribute('position', new THREE.Float32BufferAttribute(merged, 3));
+                geo.computeVertexNormals();
+            }
+
+            _voxelVolume = volume;
+            return { geo, count: cellCount, voxelSize, groundY };
         }
 
         function removeDegenerate(geom) {
@@ -1678,14 +2068,189 @@ originalGeometries = targetMeshes.map(m => m.geometry.clone());
                 v2.fromBufferAttribute(pos, i + 1);
                 v3.fromBufferAttribute(pos, i + 2);
                 if (isNaN(v1.x) || isNaN(v2.x) || isNaN(v3.x)) continue;
-                e1.subVectors(v2, v1); e2.subVectors(v3, v1);
-                if (e1.cross(e2).length() * 0.5 < 1e-10) continue;
+                e1.subVectors(v2, v1);
+                e2.subVectors(v3, v1);
+                // cross はe1を破壊するのでcloneしてから計算
+                if (e1.clone().cross(e2).lengthSq() < 1e-20) continue;
                 verts.push(v1.x, v1.y, v1.z, v2.x, v2.y, v2.z, v3.x, v3.y, v3.z);
             }
             const out = new THREE.BufferGeometry();
             out.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
             out.computeVertexNormals();
             return out;
+        }
+
+        // ── ボクセル間引き専用 穴埋め（Ear-clipping投影方式）────────────────
+        // sealHoles（ファン三角形）はカット断面用。ボクセル後の複雑な穴には
+        // Ear-clippingの方が圧倒的に適している。
+        function _resetSimplifyPreviewUI() {
+            document.getElementById('simplify-preview-info').style.display = 'none';
+            document.getElementById('simplify-idle-btns').style.display = 'block';
+            document.getElementById('simplify-confirm-btns').style.display = 'none';
+        }
+
+        // プレビューオブジェクトだけクリア（パネル・vfsは触らない）
+        function _clearSimplifyPreviewOnly() {
+            if (_simplifyPreviewObj) { scene.remove(_simplifyPreviewObj); _simplifyPreviewObj = null; }
+            _simplifyPreviewGeos = null;
+            _voxelVolume = 0;
+            if (mode === 'voxelize') mode = 'none';
+            targetMeshes.forEach(m => {
+                if (!m.material) return;
+                m.material.transparent = false;
+                m.material.opacity = 1;
+                m.material.needsUpdate = true;
+            });
+        }
+
+        // パネルごと閉じてvfsも復元する完全キャンセル
+        function _cancelSimplifyPreview() {
+            _clearSimplifyPreviewOnly();
+            const panel = document.getElementById('simplify-panel');
+            const vfs = document.getElementById('volume-file-section');
+            if (panel) panel.style.display = 'none';
+            if (vfs) vfs.style.display = 'block';
+            const btn = document.getElementById('simplifyToggleBtn');
+            if (btn) btn.classList.remove('active-blue');
+            _resetSimplifyPreviewUI();
+            // mode-badgeをリセットしてデフォルトonclickを復元
+            modeBadge.classList.remove('active');
+            modeBadge.onclick = () => setMode('none');
+            setStatus('READY');
+        }
+
+        function _showSimplifyPreview() {
+            if (targetMeshes.length === 0) { toast('先にファイルを読み込んでね', true); return; }
+            _clearSimplifyPreviewOnly(); // パネル・vfsは閉じない
+
+            const voxelSize = _getVoxelSize();
+            setStatus('VOXELIZING...');
+            toast('穴を閉じて高さマップ計算中... しばらく待ってね');
+
+            // UIを計算中状態に
+            document.getElementById('simplify-idle-btns').style.display = 'none';
+            document.getElementById('simplify-confirm-btns').style.display = 'none';
+
+            setTimeout(() => {
+                try {
+                    // ① ワールド座標に変換（sealHolesは不要：高さマップ方式は底面データ不要）
+                    // LiDARデータは下がスカスカでも、全頂点Y値の投票で計算可能。
+                    // sealHolesは大きな底面開口部で失敗する→ボクセル化から完全切り離し。
+                    modelGroup.updateMatrixWorld(true);
+                    const worldGeos = [];
+                    targetMeshes.forEach(m => {
+                        const wGeo = m.geometry.clone();
+                        const pos = wGeo.attributes.position;
+                        const mat = m.matrixWorld;
+                        const tmp = new THREE.Vector3();
+                        for (let i = 0; i < pos.count; i++) {
+                            tmp.set(pos.getX(i), pos.getY(i), pos.getZ(i)).applyMatrix4(mat);
+                            pos.setXYZ(i, tmp.x, tmp.y, tmp.z);
+                        }
+                        pos.needsUpdate = true;
+                        wGeo.computeBoundingBox();
+                        wGeo.computeBoundingSphere();
+                        worldGeos.push(wGeo);
+                    });
+
+                    // ② 高さマップ計算（穴あきメッシュでもそのまま動く）
+                    const result = _buildVoxelGeoFromGeos(worldGeos, voxelSize);
+                    if (!result) {
+                        setStatus('ERROR');
+                        document.getElementById('simplify-idle-btns').style.display = 'block';
+                        toast('計算に失敗したよ（メッシュデータを確認してね）', true);
+                        return;
+                    }
+
+                    const { geo, count } = result;
+                    _simplifyPreviewGeos = [geo];
+                    _simplifyPreviewObj = new THREE.Group();
+                    _simplifyPreviewObj.name = 'voxelPreview';
+
+                    // オレンジ半透明面
+                    const fill = new THREE.Mesh(
+                        geo,
+                        new THREE.MeshPhongMaterial({
+                            color: 0xff8c00,
+                            transparent: true,
+                            opacity: 0.6,
+                            side: THREE.DoubleSide,
+                            depthTest: true,
+                            depthWrite: false
+                        })
+                    );
+                    _simplifyPreviewObj.add(fill);
+
+                    scene.add(_simplifyPreviewObj);
+
+                    // 元メッシュをdim
+                    targetMeshes.forEach(m => {
+                        if (!m.material) return;
+                        m.material.transparent = true;
+                        m.material.opacity = 0.18;
+                        m.material.needsUpdate = true;
+                    });
+
+                    const cm = Math.round(voxelSize * 100);
+                    const gY = result.groundY !== undefined ? result.groundY.toFixed(3) + ' m' : '--';
+                    document.getElementById('simplify-preview-stats').innerHTML =
+                        `グリッド: <b>${cm} cm</b> / セル数: ${count.toLocaleString()}<br>地盤面(自動): ${gY}<br>体積: <b>${_voxelVolume.toFixed(4)} m³</b>`;
+                    document.getElementById('simplify-preview-info').style.display = 'block';
+                    document.getElementById('simplify-idle-btns').style.display = 'none';
+                    document.getElementById('simplify-confirm-btns').style.display = 'block';
+                    setStatus('HEIGHT-MAP READY');
+                    toast('高さマップ表示中。「この形状に変換」で確定・「キャンセル」で元に戻るよ');
+                } catch(e) {
+                    console.error('[Voxelize] preview failed:', e);
+                    _clearSimplifyPreviewOnly();
+                    document.getElementById('simplify-idle-btns').style.display = 'block';
+                    toast('計算失敗: ' + (e?.message || String(e)), true);
+                }
+            }, 50);
+        }
+
+        function _applySimplify() {
+            if (!_simplifyPreviewGeos || _simplifyPreviewGeos.length === 0) return;
+            pushHistory();
+
+            const voxelGeo = _simplifyPreviewGeos[0];
+
+            // 元メッシュを1つ目に焼き付け、残りを非表示化
+            targetMeshes.forEach((m, i) => {
+                if (i === 0) {
+                    m.geometry.dispose();
+                    m.geometry = voxelGeo;
+                } else {
+                    // 追加メッシュはシーンから除去（ボクセルに統合済み）
+                    modelGroup.remove(m);
+                }
+                if (m.material) {
+                    m.material.transparent = false;
+                    m.material.opacity = 1;
+                    m.material.needsUpdate = true;
+                }
+            });
+            // targetMeshesも1つに絞る
+            targetMeshes.splice(1);
+
+            if (_simplifyPreviewObj) { scene.remove(_simplifyPreviewObj); _simplifyPreviewObj = null; }
+            _simplifyPreviewGeos = null;
+
+            // 体積表示を即更新
+            document.getElementById('result').textContent = _voxelVolume.toFixed(4);
+            clearWireframe();
+
+            _resetSimplifyPreviewUI();
+            updateVertCount();
+            // パネルを閉じてvolume-file-sectionを復元（モード終了）
+            const panel = document.getElementById('simplify-panel');
+            const vfs = document.getElementById('volume-file-section');
+            if (panel) panel.style.display = 'none';
+            if (vfs) vfs.style.display = 'block';
+            document.getElementById('simplifyToggleBtn').classList.remove('active-blue');
+            setTimeout(() => autoResetRollKeepCamera(), 0);
+            setStatus('VOXELIZED');
+            toast(`ボクセル化完了！体積 ${_voxelVolume.toFixed(3)} m³`);
         }
 
         // ─────────────────────────────────────────────
@@ -1817,183 +2382,26 @@ originalGeometries = targetMeshes.map(m => m.geometry.clone());
         }
 
 
-
-
-
         // ─────────────────────────────────────────────
-        // 自動視点再調整（サイレント版）
-        // カット・消去・ロード後に自動で呼ぶ。トースト通知なし。
+        // 自動視点再調整（サイレント版）― ロード後に自動で呼ぶ
         // ─────────────────────────────────────────────
         function autoResetRoll() {
             if (targetMeshes.length === 0) return;
-
-            // transform を頂点に焼き付け
-            modelGroup.updateMatrixWorld(true);
-            targetMeshes.forEach(m => {
-                m.updateMatrixWorld(true);
-                const mat = m.matrixWorld.clone();
-                const _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3();
-                mat.decompose(_p, _q, _s);
-                const needsBake = Math.abs(_s.x-1)>1e-5 || Math.abs(_s.y-1)>1e-5 || Math.abs(_s.z-1)>1e-5
-                               || _p.lengthSq()>1e-8
-                               || Math.abs(_q.w-1)>1e-5;
-                if (needsBake) {
-                    const pos = m.geometry.attributes.position;
-                    const _bv = new THREE.Vector3();
-                    for (let i = 0; i < pos.count; i++) {
-                        _bv.fromBufferAttribute(pos, i);
-                        if (isNaN(_bv.x)) continue;
-                        _bv.applyMatrix4(mat);
-                        pos.setXYZ(i, _bv.x, _bv.y, _bv.z);
-                    }
-                    pos.needsUpdate = true;
-                    m.geometry.computeBoundingBox();
-                    m.geometry.computeBoundingSphere();
-                }
-                m.position.set(0, 0, 0);
-                m.rotation.set(0, 0, 0);
-                m.scale.set(1, 1, 1);
-            });
-            modelGroup.position.set(0, 0, 0);
-            modelGroup.rotation.set(0, 0, 0);
-            modelGroup.scale.set(1, 1, 1);
-            modelGroup.updateMatrixWorld(true);
-
-            // NaN除外でBBox取得・オフセット計算
-            let rMinX=Infinity,rMinY=Infinity,rMinZ=Infinity,rMaxX=-Infinity,rMaxY=-Infinity,rMaxZ=-Infinity;
-            const _rv = new THREE.Vector3();
-            targetMeshes.forEach(m => {
-                const pos = m.geometry.attributes.position;
-                for (let i = 0; i < pos.count; i++) {
-                    _rv.fromBufferAttribute(pos, i);
-                    if (isNaN(_rv.x)||isNaN(_rv.y)||isNaN(_rv.z)) continue;
-                    if(_rv.x<rMinX)rMinX=_rv.x; if(_rv.x>rMaxX)rMaxX=_rv.x;
-                    if(_rv.y<rMinY)rMinY=_rv.y; if(_rv.y>rMaxY)rMaxY=_rv.y;
-                    if(_rv.z<rMinZ)rMinZ=_rv.z; if(_rv.z>rMaxZ)rMaxZ=_rv.z;
-                }
-            });
-            if (!isFinite(rMinX)) return;
-
-            const centerX = (rMinX+rMaxX)/2, centerZ = (rMinZ+rMaxZ)/2;
-            const alreadyAtOrigin = Math.abs(centerX)<1e-4 && Math.abs(rMinY)<1e-4 && Math.abs(centerZ)<1e-4;
-
-            if (!alreadyAtOrigin) {
-                const offset = new THREE.Vector3(-centerX, -rMinY, -centerZ);
-                targetMeshes.forEach(m => {
-                    const pos = m.geometry.attributes.position;
-                    const v = new THREE.Vector3();
-                    for (let i = 0; i < pos.count; i++) {
-                        v.fromBufferAttribute(pos, i);
-                        if (isNaN(v.x)) continue;
-                        v.add(offset);
-                        pos.setXYZ(i, v.x, v.y, v.z);
-                    }
-                    pos.needsUpdate = true;
-                    m.geometry.computeVertexNormals();
-                    m.geometry.computeBoundingBox();
-                    m.geometry.computeBoundingSphere();
-                });
-            }
-
-            originalGeometries = targetMeshes.map(m => m.geometry.clone());
-            modelGroup.updateMatrixWorld(true);
+            if (!_bakeAndCenter()) return;
             camera.up.set(0, 1, 0);
             fit();
-
-            // カット平面も再初期化
-            const newBox = new THREE.Box3().setFromObject(modelGroup);
-            if (cuttingPlane && !newBox.isEmpty()) {
-                const newSize = newBox.getSize(new THREE.Vector3());
-                cuttingPlane.scale.set(newSize.length() * 2, newSize.length() * 2, 1);
-                document.getElementById('cut-height').value = '0';
-                document.getElementById('cut-tilt-x').value = '0';
-                document.getElementById('cut-tilt-z').value = '0';
-                updateCutterPlane();
-            }
-
-            // 体積表示・ビジュアルをリセット
-            document.getElementById('result').textContent = '---';
-            const cap = scene.getObjectByName('visualCap');
-            if (cap) scene.remove(cap);
-            const sealWire = scene.getObjectByName('sealWireframe');
-            if (sealWire) scene.remove(sealWire);
-            clearWireframe();
+            _resetCutterPlane();
+            _clearVolumeDisplay();
         }
 
         // ─────────────────────────────────────────────
-        // 自動視点再調整（カメラ位置を変えないサイレント版）
-        // ラッソ消去後など、平面視点を維持したい時に使う
+        // 自動視点再調整（カメラ位置を維持するサイレント版）― ラッソ消去後など
         // ─────────────────────────────────────────────
         function autoResetRollKeepCamera() {
             if (targetMeshes.length === 0) return;
-            modelGroup.updateMatrixWorld(true);
-            targetMeshes.forEach(m => {
-                m.updateMatrixWorld(true);
-                const mat = m.matrixWorld.clone();
-                const _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3();
-                mat.decompose(_p, _q, _s);
-                const needsBake = Math.abs(_s.x-1)>1e-5 || Math.abs(_s.y-1)>1e-5 || Math.abs(_s.z-1)>1e-5
-                               || _p.lengthSq()>1e-8 || Math.abs(_q.w-1)>1e-5;
-                if (needsBake) {
-                    const pos = m.geometry.attributes.position;
-                    const _bv = new THREE.Vector3();
-                    for (let i = 0; i < pos.count; i++) {
-                        _bv.fromBufferAttribute(pos, i);
-                        if (isNaN(_bv.x)) continue;
-                        _bv.applyMatrix4(mat);
-                        pos.setXYZ(i, _bv.x, _bv.y, _bv.z);
-                    }
-                    pos.needsUpdate = true;
-                    m.geometry.computeBoundingBox();
-                    m.geometry.computeBoundingSphere();
-                }
-                m.position.set(0,0,0); m.rotation.set(0,0,0); m.scale.set(1,1,1);
-            });
-            modelGroup.position.set(0,0,0); modelGroup.rotation.set(0,0,0); modelGroup.scale.set(1,1,1);
-            modelGroup.updateMatrixWorld(true);
-
-            let rMinX=Infinity,rMinY=Infinity,rMinZ=Infinity,rMaxX=-Infinity,rMaxZ=-Infinity;
-            const _rv = new THREE.Vector3();
-            targetMeshes.forEach(m => {
-                const pos = m.geometry.attributes.position;
-                for (let i = 0; i < pos.count; i++) {
-                    _rv.fromBufferAttribute(pos, i);
-                    if (isNaN(_rv.x)||isNaN(_rv.y)||isNaN(_rv.z)) continue;
-                    if(_rv.x<rMinX)rMinX=_rv.x; if(_rv.x>rMaxX)rMaxX=_rv.x;
-                    if(_rv.y<rMinY)rMinY=_rv.y;
-                    if(_rv.z<rMinZ)rMinZ=_rv.z; if(_rv.z>rMaxZ)rMaxZ=_rv.z;
-                }
-            });
-            if (!isFinite(rMinX)) return;
-
-            const centerX=(rMinX+rMaxX)/2, centerZ=(rMinZ+rMaxZ)/2;
-            const alreadyAtOrigin = Math.abs(centerX)<1e-4 && Math.abs(rMinY)<1e-4 && Math.abs(centerZ)<1e-4;
-            if (!alreadyAtOrigin) {
-                const offset = new THREE.Vector3(-centerX, -rMinY, -centerZ);
-                targetMeshes.forEach(m => {
-                    const pos = m.geometry.attributes.position;
-                    const v = new THREE.Vector3();
-                    for (let i = 0; i < pos.count; i++) {
-                        v.fromBufferAttribute(pos, i);
-                        if (isNaN(v.x)) continue;
-                        v.add(offset);
-                        pos.setXYZ(i, v.x, v.y, v.z);
-                    }
-                    pos.needsUpdate = true;
-                    m.geometry.computeVertexNormals();
-                    m.geometry.computeBoundingBox();
-                    m.geometry.computeBoundingSphere();
-                });
-            }
-            originalGeometries = targetMeshes.map(m => m.geometry.clone());
-            modelGroup.updateMatrixWorld(true);
+            _bakeAndCenter();
             // ★ カメラは動かさない
-            document.getElementById('result').textContent = '---';
-            const cap = scene.getObjectByName('visualCap');
-            if (cap) scene.remove(cap);
-            const sealWire = scene.getObjectByName('sealWireframe');
-            if (sealWire) scene.remove(sealWire);
-            clearWireframe();
+            _clearVolumeDisplay();
         }
 
         // ─────────────────────────────────────────────
@@ -2118,7 +2526,6 @@ originalGeometries = targetMeshes.map(m => m.geometry.clone());
             });
 
             if (changed) {
-                originalGeometries = targetMeshes.map(m => m.geometry.clone());
                 clearWireframe();
                 document.getElementById('result').textContent = '---';
                 updateVertCount();
@@ -2145,30 +2552,13 @@ originalGeometries = targetMeshes.map(m => m.geometry.clone());
         // ラッソモード時にカメラを真上に移動
         function moveCameraTopForLasso() {
             if (targetMeshes.length === 0) return;
-            // NaN頂点を除外して正確なBBoxを計算
-            let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity, minZ=Infinity, maxZ=-Infinity;
-            const _v = new THREE.Vector3();
-            targetMeshes.forEach(m => {
-                const pos = m.geometry.attributes.position;
-                const mat = m.matrixWorld;
-                for (let i = 0; i < pos.count; i++) {
-                    _v.fromBufferAttribute(pos, i);
-                    if (isNaN(_v.x) || isNaN(_v.y) || isNaN(_v.z)) continue;
-                    _v.applyMatrix4(mat);
-                    if (_v.x < minX) minX = _v.x; if (_v.x > maxX) maxX = _v.x;
-                    if (_v.y < minY) minY = _v.y; if (_v.y > maxY) maxY = _v.y;
-                    if (_v.z < minZ) minZ = _v.z; if (_v.z > maxZ) maxZ = _v.z;
-                }
-            });
-            if (!isFinite(minX)) return;
-            const cx = (minX + maxX) / 2;
-            const cy = (minY + maxY) / 2;
-            const cz = (minZ + maxZ) / 2;
-            const dist = Math.max(maxX - minX, maxZ - minZ) * 1.8 + 1;
-
-            camera.position.set(cx, cy + dist, cz);
+            modelGroup.updateMatrixWorld(true);
+            const bb = getWorldBBox(targetMeshes);
+            if (!bb) return;
+            const dist = Math.max(bb.sX, bb.sZ) * 1.8 + 1;
+            camera.position.set(bb.cx, bb.cy + dist, bb.cz);
             camera.up.set(0, 0, -1);
-            controls.target.set(cx, cy, cz);
+            controls.target.set(bb.cx, bb.cy, bb.cz);
             controls.update();
         }
 
@@ -2176,11 +2566,24 @@ originalGeometries = targetMeshes.map(m => m.geometry.clone());
         // Events
         // ─────────────────────────────────────────────
         const modeBadge = document.getElementById('mode-badge');
+        // タップ・クリックでモード解除（iPad・スマホ向け）
+        // voxelizeモード中はプレビューキャンセルも実行
+        modeBadge.addEventListener('click', () => {
+            if (mode === 'voxelize') { _cancelSimplifyPreview(); return; }
+            setMode('none');
+        });
 
         function setMode(newMode) {
             // カッターモードの場合はcutter-uiの開閉で管理するため別扱い
             const prevMode = mode;
             mode = newMode;
+
+            // 削除系・測定系モードに入る時はボクセルパネルを強制クローズ
+            if (newMode !== 'none') _cancelSimplifyPreview();
+
+            // モード切替時にSimplifyプレビューが出ていたらキャンセル
+            // ただしvoxelize→none遷移（計算完了時）はキャンセルしない
+            if (_simplifyPreviewGeos && newMode !== 'none') _cancelSimplifyPreview();
 
             // ラッソモード以外に切り替わった時はラッソ状態をすべてクリア
             if (newMode !== 'lasso') clearLasso();
@@ -2240,29 +2643,32 @@ originalGeometries = targetMeshes.map(m => m.geometry.clone());
 
             // ── モードバッジ ──
             if (mode === 'single') {
-                modeBadge.innerHTML = '⊘ 個別指定消去モード  ―  ESC でキャンセル<br><span style="font-size:11px; opacity:0.7;">※ 面単位で削除されます</span>';
+                modeBadge.innerHTML = '⊘ 個別指定消去モード<br><span style="font-size:11px; opacity:0.7;">※ 面単位で削除されます</span><span class="cancel-hint">モード解除</span>';
                 modeBadge.classList.add('active'); setStatus('MODE: SINGLE DEL');
             } else if (mode === 'area') {
-                modeBadge.innerHTML = '⊘ 矩形範囲消去モード  ―  ドラッグで範囲選択  ／  ESC でキャンセル<br><span style="font-size:11px; opacity:0.7;">※ 面単位で削除されます</span>';
+                modeBadge.innerHTML = '⊘ 矩形範囲消去モード  ―  ドラッグで範囲選択<br><span style="font-size:11px; opacity:0.7;">※ 面単位で削除されます</span><span class="cancel-hint">モード解除</span>';
                 modeBadge.classList.add('active'); setStatus('MODE: AREA DEL');
             } else if (mode === 'lasso') {
-                modeBadge.innerHTML = '✏ 範囲外消去モード  ―  ドラッグでラインを描く  ／  ESC でキャンセル<br><span style="font-size:11px; opacity:0.7;">※ 囲んだ外側のポリゴンが消えます</span>';
+                modeBadge.innerHTML = '✏ 範囲外消去モード  ―  ドラッグでラインを描く<br><span style="font-size:11px; opacity:0.7;">※ 囲んだ外側のポリゴンが消えます</span><span class="cancel-hint">モード解除</span>';
                 modeBadge.classList.add('active'); setStatus('MODE: LASSO DEL');
             } else if (mode === 'measure') {
-                modeBadge.textContent = '📏 距離調整モード  ―  2点をクリック（左クリックのみ）  ／  ESC でキャンセル';
+                modeBadge.innerHTML = '📏 距離測定モード  ―  2点をタップ/クリック<span class="cancel-hint">モード解除</span>';
                 modeBadge.classList.add('active'); setStatus('MODE: MEASURE');
             } else if (mode === 'cutter') {
-                modeBadge.innerHTML = '✂ 地盤面設定（下部カット）モード  ―  ESC でキャンセル<br><span style="font-size:11px; opacity:0.7;">指定した高さより下を切り落とし、断面を自動で閉じます</span>';
+                modeBadge.innerHTML = '✂ 地盤面設定（下部カット）モード<br><span style="font-size:11px; opacity:0.7;">指定した高さより下を切り落とし、断面を自動で閉じます</span><span class="cancel-hint">モード解除</span>';
                 modeBadge.classList.add('active'); setStatus('MODE: CUTTER');
+            } else if (mode === 'voxelize') {
+                modeBadge.innerHTML = '🧱 高さマップ計算中...<br><span style="font-size:11px; opacity:0.7;">完了するまでお待ちください</span><span class="cancel-hint">キャンセル</span>';
+                modeBadge.classList.add('active'); setStatus('VOXELIZING...');
             } else {
                 modeBadge.classList.remove('active'); setStatus('READY');
             }
         }
 
-        renderer.domElement.addEventListener('pointerdown', (e) => {
+        renderer.domElement.addEventListener('mousedown', (e) => {
             if (mode === 'none') return;
-            // 距離調整モードはマウス右クリックを画面移動に使うため左クリック／タッチのみ処理
-            if (mode === 'measure' && e.pointerType === 'mouse' && e.button !== 0) return;
+            // 距離調整モードは右クリックを画面移動に使うため左クリックのみ処理
+            if (mode === 'measure' && e.button !== 0) return;
             if (mode !== 'measure') e.stopPropagation();
             const rect = renderer.domElement.getBoundingClientRect();
             const mouse = new THREE.Vector2(
@@ -2329,23 +2735,21 @@ originalGeometries = targetMeshes.map(m => m.geometry.clone());
             }
         });
 
-        window.addEventListener('pointermove', (e) => {
+        window.addEventListener('mousemove', (e) => {
             if (mode === 'lasso' && lassoDrawing) {
-                e.preventDefault();
                 lassoPoints.push({ x: e.clientX, y: e.clientY });
                 drawLasso();
                 return;
             }
             if (!isSelecting || mode !== 'area') return;
-            e.preventDefault();
             const b = document.getElementById('select-box');
             b.style.left = Math.min(startPoint.x, e.clientX) + 'px';
             b.style.top = Math.min(startPoint.y, e.clientY) + 'px';
             b.style.width = Math.abs(startPoint.x - e.clientX) + 'px';
             b.style.height = Math.abs(startPoint.y - e.clientY) + 'px';
-        }, { passive: false });
+        });
 
-        window.addEventListener('pointerup', (e) => {
+        window.addEventListener('mouseup', (e) => {
             // ラッソモード：ドラッグ終了でラインを閉じる
             if (mode === 'lasso' && lassoDrawing) {
                 lassoDrawing = false;
@@ -2393,7 +2797,6 @@ targetMeshes.forEach(m => {
 });
 
 if (changed) {
-    originalGeometries = targetMeshes.map(m => m.geometry.clone());
     // 形状変化→体積表示・ワイヤー表示をリセット
     clearWireframe();
     document.getElementById('result').textContent = '---';
@@ -2415,34 +2818,73 @@ if (changed) {
             document.getElementById(id).addEventListener('input', updateCutterPlane);
         });
 
-        // Simplifyトグル
+        // Voxelizeトグル・停止ボタン
         document.getElementById('simplifyToggleBtn').onclick = () => {
+            if (mode === 'voxelize') { _cancelSimplifyPreview(); return; }
             const panel = document.getElementById('simplify-panel');
+            const vfs = document.getElementById('volume-file-section');
             const isOpen = panel.style.display === 'block';
-            panel.style.display = isOpen ? 'none' : 'block';
-            document.getElementById('simplifyToggleBtn').classList.toggle('active-blue', !isOpen);
-        };
-
-        // Simplify実行（確認ダイアログあり）
-        document.getElementById('simplifyBtn').onclick = () => {
-            if (targetMeshes.length === 0) { toast('先にファイルを読み込んでね', true); return; }
-            const pct = document.getElementById('simplifySlider').value;
-            if (confirm(`マージ距離 ${pct}% で近接頂点を統合します。\nまずは5〜10%から試すことをおすすめします！\n大きい値にしすぎると形状が崩れます。\nUndoできます。実行しますか？`)) {
-                simplifyMeshes();
+            if (isOpen) {
+                _cancelSimplifyPreview();
+            } else {
+                // 他モードをUIレベルで解除してからボクセルパネルを開く
+                // setMode('none')を呼ぶと_cancelSimplifyPreviewが走るので直接操作
+                mode = 'none';
+                ['singleDel','areaDel','lassoDelBtn','measureBtn','btn-toggle-cutter'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.classList.remove('active-warn','active-blue');
+                });
+                document.getElementById('measure-panel').style.display = 'none';
+                document.getElementById('lasso-ui').style.display = 'none';
+                document.getElementById('lasso-canvas').style.display = 'none';
+                document.getElementById('cutter-ui').style.display = 'none';
+                if (cuttingPlane) cuttingPlane.visible = false;
+                if (belowHighlightMesh) { scene.remove(belowHighlightMesh); belowHighlightMesh = null; }
+                modeBadge.classList.remove('active');
+                controls.enabled = true;
+                camera.up.set(0,1,0); controls.update();
+                clearLasso(); clearMeasure();
+                // ボクセルパネルを開く
+                panel.style.display = 'block';
+                if (vfs) vfs.style.display = 'none';
+                document.getElementById('simplifyToggleBtn').classList.add('active-blue');
+                _updateSimplifySizeHint();
+                // mode-badgeに警告＋停止ボタンを表示（他モードと同様）
+                modeBadge.innerHTML = '🧱 ボクセル化モード ─ <span style="font-size:11px; opacity:0.8;">計算に時間がかかります。不要な部分を消去してから実行してね（平地前提）</span><span class="cancel-hint">終了</span>';
+                modeBadge.classList.add('active');
+                modeBadge.onclick = () => _cancelSimplifyPreview();
             }
         };
 
-        // Simplify slider
+        // プレビューボタン
+        document.getElementById('simplifyPreviewBtn').onclick = () => _showSimplifyPreview();
+
+        // 適用ボタン
+        document.getElementById('simplifyApplyBtn').onclick = () => _applySimplify();
+
+        // キャンセルボタン
+        document.getElementById('simplifyCancelBtn').onclick = () => _cancelSimplifyPreview();
+
+        // 終了ボタン（常時：プレビュー有無問わず閉じる）
+        document.getElementById('simplifyCloseBtn').onclick = () => _cancelSimplifyPreview();
+
+        // Voxelizeスライダー
         const simplifySlider = document.getElementById('simplifySlider');
-        // 初期値で--pctを設定（表示ズレ防止）
-        simplifySlider.style.setProperty('--pct', (simplifySlider.value / 25 * 100) + '%');
+        simplifySlider.style.setProperty('--pct', ((simplifySlider.value - 2) / 48 * 100) + '%');
         simplifySlider.oninput = () => {
-            document.getElementById('simplifyVal').textContent = simplifySlider.value + '%';
-            simplifySlider.style.setProperty('--pct', (simplifySlider.value / 25 * 100) + '%');
+            simplifySlider.style.setProperty('--pct', ((simplifySlider.value - 2) / 48 * 100) + '%');
+            _updateSimplifySizeHint();
+            // プレビュー中ならプレビューだけクリア（パネルは維持）
+            if (_simplifyPreviewGeos) {
+                _clearSimplifyPreviewOnly();
+                _resetSimplifyPreviewUI();
+                toast('サイズを変えたよ。再度「プレビュー＆計算」してね');
+            }
         };
 
         document.getElementById('undoBtn').onclick = undo;
         document.getElementById('resetRoll').onclick = resetRoll;
+        document.getElementById('heatmapBtn').onclick = () => setHeatmap(!heatmapActive);
         document.getElementById('singleDel').onclick = () => setMode(mode === 'single' ? 'none' : 'single');
         document.getElementById('areaDel').onclick = () => setMode(mode === 'area' ? 'none' : 'area');
         document.getElementById('lassoDelBtn').onclick = () => {
