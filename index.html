@@ -562,54 +562,10 @@
             }
         }
 
-        /* ── 縦向き時の横向き誘導オーバーレイ ── */
-        #rotate-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: var(--bg);
-            z-index: 9999;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 16px;
-            font-family: var(--mono);
-            color: var(--accent);
-        }
-        #rotate-overlay .rotate-icon {
-            font-size: 64px;
-            animation: rotate-hint 1.5s ease-in-out infinite;
-        }
-        #rotate-overlay .rotate-msg {
-            font-size: 16px;
-            letter-spacing: 0.1em;
-            color: var(--text);
-        }
-        #rotate-overlay .rotate-sub {
-            font-size: 12px;
-            color: var(--text-dim);
-            letter-spacing: 0.08em;
-        }
-        @keyframes rotate-hint {
-            0%, 100% { transform: rotate(0deg); }
-            40% { transform: rotate(90deg); }
-            60% { transform: rotate(90deg); }
-        }
-        @media (orientation: portrait) {
-            #rotate-overlay { display: flex; }
-        }
-
     </style>
 </head>
 
 <body>
-
-    <!-- 縦向き時の横向き誘導オーバーレイ -->
-    <div id="rotate-overlay">
-        <div class="rotate-icon">📱</div>
-        <div class="rotate-msg">横向きにしてね</div>
-        <div class="rotate-sub">VolChe は横向き専用です</div>
-    </div>
 
     <div id="select-box"></div>
     <!-- ラッソ描画用オーバーレイCanvas -->
@@ -879,7 +835,6 @@
         const HISTORY_MAX = 30;
         let history = [];
         let mode = 'none';
-        let activePointerId = null; // iOS Pointer Capture管理用
         let fileLoaded = false; // ① D&D overlay制御フラグ
         let measurePoints = [], measureMarkers = [], measureLine = null;
         let cuttingPlane = null;
@@ -2309,9 +2264,6 @@ originalGeometries = targetMeshes.map(m => m.geometry.clone());
             // 距離調整モードはマウス右クリックを画面移動に使うため左クリック／タッチのみ処理
             if (mode === 'measure' && e.pointerType === 'mouse' && e.button !== 0) return;
             if (mode !== 'measure') e.stopPropagation();
-            // Pointer Captureで pointermove/pointerup を確実にこの要素に届かせる（iOS必須）
-            activePointerId = e.pointerId;
-            try { renderer.domElement.setPointerCapture(e.pointerId); } catch(_) {}
             const rect = renderer.domElement.getBoundingClientRect();
             const mouse = new THREE.Vector2(
                 ((e.clientX - rect.left) / rect.width) * 2 - 1,
@@ -2377,8 +2329,7 @@ originalGeometries = targetMeshes.map(m => m.geometry.clone());
             }
         });
 
-        renderer.domElement.addEventListener('pointermove', (e) => {
-            if (e.pointerId !== activePointerId) return;
+        window.addEventListener('pointermove', (e) => {
             if (mode === 'lasso' && lassoDrawing) {
                 e.preventDefault();
                 lassoPoints.push({ x: e.clientX, y: e.clientY });
@@ -2394,9 +2345,7 @@ originalGeometries = targetMeshes.map(m => m.geometry.clone());
             b.style.height = Math.abs(startPoint.y - e.clientY) + 'px';
         }, { passive: false });
 
-        renderer.domElement.addEventListener('pointerup', (e) => {
-            if (e.pointerId !== activePointerId) return;
-            activePointerId = null;
+        window.addEventListener('pointerup', (e) => {
             // ラッソモード：ドラッグ終了でラインを閉じる
             if (mode === 'lasso' && lassoDrawing) {
                 lassoDrawing = false;
