@@ -21,15 +21,15 @@
 
   【バージョンルール】
     指示がない限り、軽微な更新でも毎回バージョンを 1 つ上げること。
-    例: v1.206 → v1.313
+    例: v1.206 → v1.314
 
   【Claude への引き継ぎメモ】
     - LiDAR メッシュは穴あき・非多様体が多い点に注意
     - sealHoles はファン三角形方式のため大きな開口部で誤差が出やすい
-    - ボクセル化（v1.313～）：高さマップ（2.5D）方式
+    - ボクセル化（v1.314～）：高さマップ（2.5D）方式
       XZグリッドの各セルで最大Y頂点を取得→地盤面（Y下位5%中央値）との差を積算
       ★ sealHolesはボクセル化計算から完全切り離し済み（v1.212～）
-      ★ BFS外側判定を廃止、スキャンライン内側判定に移行（v1.313～）
+      ★ BFS外側判定を廃止、スキャンライン内側判定に移行（v1.314～）
         BFSは球面メッシュのギャップから外側が内側に「漏れる」バグがあった。
         代替：行・列それぞれの有効セル両端範囲で内側を特定するスキャンライン方式。
         外側 -Infinity セル → 生成ループでskip → 幽霊ボクセル根絶。
@@ -53,7 +53,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>VolChe - Volume Checker v1.313</title>
+    <title>VolChe - Volume Checker v1.314</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -783,7 +783,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.313</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.314</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:10px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -839,7 +839,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.313</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.314</span>
         </div>
         <div class="panel-body">
 
@@ -2707,23 +2707,23 @@
                 clearWireframe();
                 document.getElementById('result').textContent = '---';
                 updateVertCount();
-                toast('消去完了！続けて描き直すか、ESCで終了してね');
+                toast('消去完了！');
             } else {
                 toast('消去対象が見つからなかったわ', true);
             }
 
-            // ラッソ線をリセットして描き直し待機（モードは終了しない）
-            clearLasso();
-            const lc = document.getElementById('lasso-canvas');
-            sizeLassoCanvas();
-            lc.style.display = 'block';
-
-            // 座標正規化後に平面視点を再適用
+            // 消去完了→自動でモード終了（ラッソ線・バッジも消える）
             if (changed) {
                 setTimeout(() => {
                     autoResetRollKeepCamera();
-                    moveCameraTopForLasso();
+                    setMode('none');
                 }, 0);
+            } else {
+                // 消去対象なし→描き直せるよう継続
+                clearLasso();
+                const lc = document.getElementById('lasso-canvas');
+                sizeLassoCanvas();
+                lc.style.display = 'block';
             }
         }
 
@@ -3018,13 +3018,11 @@ targetMeshes.forEach(m => {
 
 if (changed) {
     pushHistory();
-    // 形状変化→体積表示・ワイヤー表示をリセット
     clearWireframe();
     document.getElementById('result').textContent = '---';
     updateVertCount();
     setTimeout(() => autoResetRollKeepCamera(), 0);
-    // スマホはタッチ操作後にモード解除（ボタン操作が詰まらないように）
-    if ('ontouchstart' in window) setMode('none');
+    setMode('none'); // 矩形消去完了→自動終了
 }
 
         });
