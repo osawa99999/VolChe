@@ -637,9 +637,11 @@
                 overflow: hidden !important;
             }
 
-            /* Three.jsのcanvas（body直下）を上半分に */
+            /* Three.jsのcanvas（JSでbody末尾に追加）を上半分に */
+            /* order:-1 で #ui より前（上）に表示 */
             body > canvas {
                 position: relative !important;
+                order: -1 !important;
                 flex: 0 0 50dvh !important;
                 width: 100% !important;
                 height: 50dvh !important;
@@ -649,6 +651,7 @@
             /* 左パネル(#ui)を下半分のスクロールエリアに */
             #ui {
                 position: relative !important;
+                order: 1 !important;
                 top: auto !important; left: auto !important;
                 width: 100% !important;
                 height: auto !important;
@@ -686,15 +689,21 @@
             /* ハンバーガー不要 */
             .hamburger-btn { display: none !important; }
 
-            /* drop-overlayをcanvasエリアに収める */
+            /* drop-overlayをcanvas上半分だけに収める */
             #drop-overlay {
-                height: 50dvh !important;
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
                 bottom: auto !important;
+                height: 50dvh !important;
+                inset: auto !important;
+                width: 100% !important;
             }
 
             /* toast を上半分下部に */
             #toast {
-                bottom: 51dvh !important;
+                bottom: calc(50dvh + 4px) !important;
                 top: auto !important;
                 font-size: 11px !important;
                 padding: 5px 10px !important;
@@ -715,7 +724,7 @@
 
             /* ロゴを小さく */
             #osaki-logo {
-                bottom: 51dvh !important;
+                bottom: calc(50dvh + 4px) !important;
                 right: 4px !important;
                 width: 60px !important;
             }
