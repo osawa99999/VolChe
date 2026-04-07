@@ -235,6 +235,8 @@
 
         .btn-grid .btn {
             margin-bottom: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         /* ── SIMPLIFY SLIDER ── */
@@ -873,17 +875,19 @@
                     <button class="btn" id="singleDel">個別指定消去</button>
                     <button class="btn" id="areaDel">矩形範囲消去</button>
                     <button class="btn" id="lassoDelBtn">範囲外消去</button>
-                    <button class="btn" id="btn-toggle-cutter" style="line-height:1.3;">地盤面設定<br><span style="font-size:10px; opacity:0.7;">（下部カット）</span></button>
-                    <button class="btn" id="simplifyToggleBtn">🧱 ボクセル化</button>
-                    <button class="btn" id="undoBtn">↩ 元に戻す</button>
+                    <button class="btn" id="btn-toggle-cutter" style="font-size:12px; line-height:1.2; padding:7px 6px;">地盤面設定<br><span style="font-size:10px; opacity:0.7;">（下部カット）</span></button>
+                    <button class="btn" id="simplifyToggleBtn" style="white-space:nowrap; font-size:13px;">🧱 ボクセル化</button>
+                    <button class="btn" id="undoBtn" style="white-space:nowrap; font-size:13px;">↩ 元に戻す</button>
                 </div>
             </div>
-            <div id="result-box">
-                <div class="result-label">VOLUME</div>
-                <div id="result">---</div>
-                <div class="result-unit">m³</div>
+            <div style="display:flex; align-items:stretch; gap:6px; margin-bottom:8px;">
+                <div id="result-box" style="margin-bottom:0; flex:1;">
+                    <div class="result-label">VOLUME</div>
+                    <div id="result">---</div>
+                    <div class="result-unit">m³</div>
+                </div>
+                <button class="btn btn-accent" id="calcBtn" style="margin-bottom:0; flex-shrink:0; width:auto; padding:8px 12px; font-size:14px; white-space:nowrap;">▶ 計算</button>
             </div>
-            <button class="btn btn-accent" id="calcBtn">▶ 体積計算</button>
             <div class="section" style="margin-top:12px;">
                 <div class="section-label">File</div>
                 <button class="btn btn-blue" id="exportBtn">⬇ GLB形式で保存</button>
@@ -1562,7 +1566,7 @@
 
         function updateUndoBtn() {
             const btn = document.getElementById('undoBtn');
-            btn.textContent = `↩ 元に戻す（${history.length}）`;
+            btn.textContent = `↩ 戻す (${history.length})`;
             btn.style.opacity = history.length > 0 ? '1' : '0.4';
         }
 
@@ -1710,7 +1714,9 @@
 
         // ユーティリティ：体積表示・シール可視化・ワイヤーフレームをリセット
         function _clearVolumeDisplay() {
-            document.getElementById('result').textContent = '---';
+            const r = document.getElementById('result');
+            r.textContent = '---';
+            r.style.fontSize = '';
             const cap = scene.getObjectByName('visualCap');
             if (cap) scene.remove(cap);
             const sw = scene.getObjectByName('sealWireframe');
@@ -2436,8 +2442,14 @@
         // ─────────────────────────────────────────────
         function calcVolume() {
             if (targetMeshes.length === 0) { toast('先にファイルを読み込んでね', true); return; }
+
+            // ── 計算中表示（即座に反映させるためsetTimeoutで1フレーム後に計算開始）
+            const resultEl = document.getElementById('result');
+            resultEl.textContent = '計算中...';
+            resultEl.style.fontSize = '13px';
             setStatus('COMPUTING...');
 
+            setTimeout(() => {
             // matrixWorldを最新化
             modelGroup.updateMatrixWorld(true);
 
@@ -2501,9 +2513,11 @@
             const result = Math.abs(vol);
             // 小数点以下3桁で切り捨て（0.001m³単位：現場精度として十分）
             const truncated = Math.floor(result * 1000) / 1000;
-            document.getElementById('result').textContent = truncated.toFixed(3);
+            resultEl.textContent = truncated.toFixed(3);
+            resultEl.style.fontSize = '';
             setStatus('READY');
             toast(`体積: ${truncated.toFixed(3)} m³`);
+            }, 30); // 30ms待って描画を先に更新させる
         }
 
 
@@ -2742,9 +2756,9 @@
             if (newMode !== 'lasso') clearLasso();
             if (newMode !== 'lasso') { camera.up.set(0, 1, 0); controls.update(); }
 
-            // ボクセル化・地盤面カット中はOrbitControls有効（パン・ズーム可能）
-            controls.enabled = (mode === 'none' || mode === 'voxelize' || mode === 'cutter');
-            document.body.classList.toggle('mode-select', mode !== 'none' && mode !== 'voxelize' && mode !== 'cutter');
+            // ボクセル化・地盤面カット・距離測定中はOrbitControls有効（パン・ズーム可能）
+            controls.enabled = (mode === 'none' || mode === 'voxelize' || mode === 'cutter' || mode === 'measure');
+            document.body.classList.toggle('mode-select', mode !== 'none' && mode !== 'voxelize' && mode !== 'cutter' && mode !== 'measure');
             isSelecting = false;
             document.getElementById('select-box').style.display = 'none';
 
@@ -2821,7 +2835,7 @@
                 modeBadge.innerHTML = '✂ 地盤面カット ' + _cancelBtn;
                 modeBadge.classList.add('active'); setStatus('MODE: CUTTER');
             } else if (mode === 'voxelize') {
-                modeBadge.innerHTML = '🧱 ボクセル化 <button class="cancel-hint" id="badge-cancel-btn">✕ キャンセル</button>';
+                modeBadge.innerHTML = '🧱 ボクセル化 <button class="cancel-hint" id="badge-cancel-btn">✕ 解除</button>';
                 modeBadge.classList.add('active'); setStatus('VOXELIZING...');
             } else {
                 modeBadge.classList.remove('active'); setStatus('READY');
