@@ -21,15 +21,15 @@
 
   【バージョンルール】
     指示がない限り、軽微な更新でも毎回バージョンを 1 つ上げること。
-    例: v1.206 → v1.315
+    例: v1.206 → v1.319
 
   【Claude への引き継ぎメモ】
     - LiDAR メッシュは穴あき・非多様体が多い点に注意
     - sealHoles はファン三角形方式のため大きな開口部で誤差が出やすい
-    - ボクセル化（v1.315～）：高さマップ（2.5D）方式
+    - ボクセル化（v1.319～）：高さマップ（2.5D）方式
       XZグリッドの各セルで最大Y頂点を取得→地盤面（Y下位5%中央値）との差を積算
       ★ sealHolesはボクセル化計算から完全切り離し済み（v1.212～）
-      ★ BFS外側判定を廃止、スキャンライン内側判定に移行（v1.315～）
+      ★ BFS外側判定を廃止、スキャンライン内側判定に移行（v1.319～）
         BFSは球面メッシュのギャップから外側が内側に「漏れる」バグがあった。
         代替：行・列それぞれの有効セル両端範囲で内側を特定するスキャンライン方式。
         外側 -Infinity セル → 生成ループでskip → 幽霊ボクセル根絶。
@@ -53,7 +53,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>VolChe - Volume Checker v1.315</title>
+    <title>VolChe - Volume Checker v1.319</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -446,13 +446,14 @@
 
         #mode-badge .cancel-hint {
             display: inline-block;
-            font-size: 11px;
+            font-size: 13px;
             color: #000;
             background: var(--warn);
-            border-radius: 10px;
-            padding: 2px 10px;
+            border-radius: 12px;
+            padding: 5px 16px;
             letter-spacing: 0.04em;
             white-space: nowrap;
+            font-weight: 700;
         }
 
         body.mode-select canvas {
@@ -740,6 +741,12 @@
                 text-align: center !important;
             }
 
+            /* UI非表示時はcanvasを全画面に */
+            body.ui-hidden > canvas:not(#lasso-canvas) {
+                flex: 0 0 100dvh !important;
+                height: 100dvh !important;
+            }
+
             /* ロゴはスマホ時非表示 */
             #osaki-logo { display: none !important; }
 
@@ -785,7 +792,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.315</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.319</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:10px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -841,8 +848,8 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.315</span>
-            <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:none; border:none; color:var(--text-dim); font-size:18px; cursor:pointer; padding:0 4px; line-height:1; touch-action:manipulation;">✕</button>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.319</span>
+            <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:none; border:none; color:var(--text-dim); font-size:16px; cursor:pointer; padding:0 4px; line-height:1; touch-action:manipulation; opacity:0.6;">👁</button>
         </div>
 
         <!-- メインメニュー -->
@@ -940,7 +947,7 @@
     </div>
 
     <!-- UI非表示時の再表示ボタン -->
-    <button id="ui-show-btn" title="UIを表示" style="display:none; position:fixed; bottom:20px; left:12px; z-index:300; background:var(--panel); border:1px solid var(--border-bright); border-radius:50%; width:44px; height:44px; color:var(--accent); font-size:20px; cursor:pointer; align-items:center; justify-content:center; box-shadow:0 0 16px rgba(57,255,143,0.2); touch-action:manipulation;">☰</button>
+    <button id="ui-show-btn" title="UIを表示" style="display:none; position:fixed; bottom:20px; left:12px; z-index:300; background:var(--panel); border:1px solid var(--border-bright); border-radius:50%; width:44px; height:44px; font-size:20px; cursor:pointer; align-items:center; justify-content:center; box-shadow:0 0 16px rgba(57,255,143,0.2); touch-action:manipulation;">🙈</button>
 
     <!-- VIEW PANEL (右上フロート) -->
     <div id="view-panel">
@@ -2195,12 +2202,11 @@
             document.getElementById('simplify-confirm-btns').style.display = 'none';
         }
 
-        // プレビューオブジェクトだけクリア（パネル・vfsは触らない）
+        // プレビューオブジェクトだけクリア（mode/menuは触らない）
         function _clearSimplifyPreviewOnly() {
             if (_simplifyPreviewObj) { scene.remove(_simplifyPreviewObj); _simplifyPreviewObj = null; }
             _simplifyPreviewGeos = null;
             _voxelVolume = 0;
-            if (mode === 'voxelize') mode = 'none';
             targetMeshes.forEach(m => {
                 if (!m.material) return;
                 m.material.transparent = false;
@@ -2209,22 +2215,10 @@
             });
         }
 
-        // パネルごと閉じて完全キャンセル
+        // プレビューのクリーンアップのみ（menu/modeはsetModeが管理）
         function _cancelSimplifyPreview() {
             _clearSimplifyPreviewOnly();
             _resetSimplifyPreviewUI();
-            mode = 'none'; // setMode内でcancelを再帰呼びするのを防ぐため直接セット
-            // メインメニュー復元
-            document.getElementById('main-menu').style.display = 'block';
-            document.getElementById('sub-menu').style.display  = 'none';
-            document.getElementById('simplify-panel').style.display = 'none';
-            const btn = document.getElementById('simplifyToggleBtn');
-            if (btn) btn.classList.remove('active-blue');
-            modeBadge.classList.remove('active');
-            modeBadge.onclick = () => setMode('none');
-            controls.enabled = true;
-            camera.up.set(0,1,0); controls.update();
-            setStatus('READY');
         }
 
         function _showSimplifyPreview() {
@@ -2363,17 +2357,8 @@
             _resetSimplifyPreviewUI();
             updateVertCount();
 
-            // ③ modeBadgeをリセット（_cancelSimplifyPreviewと同様）
-            modeBadge.classList.remove('active');
-            modeBadge.innerHTML = '';
-            modeBadge.onclick = () => setMode('none');
-            mode = 'none';
-
-            // パネルを閉じてメインメニューを復元（モード終了）
-            const panel = document.getElementById('simplify-panel');
-            if (panel) panel.style.display = 'none';
-            document.getElementById('main-menu').style.display = 'block';
-            document.getElementById('sub-menu').style.display  = 'none';
+            // ③ setMode('none')でメインメニュー復元・バッジ消去・状態リセット
+            setMode('none');
             document.getElementById('simplifyToggleBtn').classList.remove('active-blue');
             setTimeout(() => autoResetRollKeepCamera(), 0);
             setStatus('VOXELIZED');
@@ -2568,6 +2553,16 @@
                 ctx.clearRect(0, 0, lc.width, lc.height);
                 lc.style.display = 'none';
             }
+            updateLassoExecBtn();
+        }
+
+        // 消去実行ボタンをlassoFinishedに連動
+        function updateLassoExecBtn() {
+            const btn = document.getElementById('lassoExecBtn');
+            if (!btn) return;
+            btn.disabled = !lassoFinished;
+            btn.style.opacity = lassoFinished ? '1' : '0.35';
+            btn.style.cursor  = lassoFinished ? 'pointer' : 'not-allowed';
         }
 
         // ラッソラインを Canvas に描画（lassoPointsはclientXY、描画はcanvas相対座標に変換）
@@ -2578,22 +2573,17 @@
             if (lassoPoints.length < 2) return;
 
             const rect = renderer.domElement.getBoundingClientRect();
-            // clientXY → canvas相対座標
             const cx = p => p.x - rect.left;
             const cy = p => p.y - rect.top;
 
-            // 外側（消去領域）を極薄い赤で塗る（見えすぎない程度に）
+            // 閉じたとき：内側を薄い緑で塗る（外側は塗らない）
             if (lassoFinished) {
-                ctx.save();
-                ctx.fillStyle = 'rgba(255, 80, 30, 0.15)';
-                ctx.fillRect(0, 0, lc.width, lc.height);
-                ctx.globalCompositeOperation = 'destination-out';
                 ctx.beginPath();
                 ctx.moveTo(cx(lassoPoints[0]), cy(lassoPoints[0]));
                 for (let i = 1; i < lassoPoints.length; i++) ctx.lineTo(cx(lassoPoints[i]), cy(lassoPoints[i]));
                 ctx.closePath();
+                ctx.fillStyle = 'rgba(57, 255, 143, 0.08)';
                 ctx.fill();
-                ctx.restore();
             }
 
             // ライン本体
@@ -2601,7 +2591,7 @@
             ctx.moveTo(cx(lassoPoints[0]), cy(lassoPoints[0]));
             for (let i = 1; i < lassoPoints.length; i++) ctx.lineTo(cx(lassoPoints[i]), cy(lassoPoints[i]));
             if (lassoFinished) ctx.closePath();
-            ctx.strokeStyle = 'rgba(255, 107, 43, 0.9)';
+            ctx.strokeStyle = lassoFinished ? 'rgba(57, 255, 143, 0.9)' : 'rgba(255, 107, 43, 0.9)';
             ctx.lineWidth = 2;
             ctx.setLineDash(lassoFinished ? [] : [6, 3]);
             ctx.stroke();
@@ -2609,7 +2599,7 @@
             // 始点マーカー
             ctx.beginPath();
             ctx.arc(cx(lassoPoints[0]), cy(lassoPoints[0]), 5, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(255, 107, 43, 0.9)';
+            ctx.fillStyle = lassoFinished ? 'rgba(57, 255, 143, 0.9)' : 'rgba(255, 107, 43, 0.9)';
             ctx.fill();
         }
 
@@ -2718,13 +2708,17 @@
             const prevMode = mode;
             mode = newMode;
 
-            if (newMode !== 'none') _cancelSimplifyPreview();
-            if (_simplifyPreviewGeos && newMode !== 'none') _cancelSimplifyPreview();
+            // voxelize以外のモードに入る時のみ既存プレビューをキャンセル
+            if (newMode !== 'none' && newMode !== 'voxelize') _cancelSimplifyPreview();
+            // voxelizeから離れるときはプレビューをクリーンアップ
+            if (prevMode === 'voxelize' && newMode !== 'voxelize') _cancelSimplifyPreview();
+
             if (newMode !== 'lasso') clearLasso();
             if (newMode !== 'lasso') { camera.up.set(0, 1, 0); controls.update(); }
 
-            controls.enabled = (mode === 'none');
-            document.body.classList.toggle('mode-select', mode !== 'none');
+            // ボクセル化・地盤面カット中はOrbitControls有効（パン・ズーム可能）
+            controls.enabled = (mode === 'none' || mode === 'voxelize' || mode === 'cutter');
+            document.body.classList.toggle('mode-select', mode !== 'none' && mode !== 'voxelize' && mode !== 'cutter');
             isSelecting = false;
             document.getElementById('select-box').style.display = 'none';
 
@@ -2934,6 +2928,7 @@
                 if (lassoPoints.length >= 3) {
                     lassoFinished = true;
                     drawLasso();
+                    updateLassoExecBtn();
                     toast('ラインが描けたよ！「消去実行」で範囲外を削除するわ');
                 } else {
                     clearLasso();
@@ -2954,6 +2949,7 @@
             const minY = -((Math.max(startPoint.y, e.clientY) - _rect.top)  / _ch) * 2 + 1;
             const maxY = -((Math.min(startPoint.y, e.clientY) - _rect.top)  / _ch) * 2 + 1;
 
+pushHistory(); // ★ 削除前にスナップショット保存（undoで戻せるように）
 let changed = false;
 
 targetMeshes.forEach(m => {
@@ -2972,18 +2968,19 @@ targetMeshes.forEach(m => {
         }
     }
     p.needsUpdate = true;
-    // NaN頂点混入後はバウンディングスフィアを再計算（カリング誤判定防止）
     m.geometry.computeBoundingBox();
     m.geometry.computeBoundingSphere();
 });
 
 if (changed) {
-    pushHistory();
     clearWireframe();
     document.getElementById('result').textContent = '---';
     updateVertCount();
     setTimeout(() => autoResetRollKeepCamera(), 0);
-    setMode('none'); // 矩形消去完了→自動終了
+    setMode('none');
+} else {
+    history.pop(); // 変化なしならスナップショットを破棄
+    updateUndoBtn();
 }
 
         });
@@ -3003,16 +3000,16 @@ if (changed) {
 
         // Voxelizeトグル → setModeに委譲
         document.getElementById('simplifyToggleBtn').onclick = () => {
-            if (mode === 'voxelize') { _cancelSimplifyPreview(); return; }
-            setMode('voxelize');
-            _updateSimplifySizeHint();
+            setMode(mode === 'voxelize' ? 'none' : 'voxelize');
+            if (mode === 'voxelize') _updateSimplifySizeHint();
         };
 
-        // プレビューボタン
         document.getElementById('simplifyPreviewBtn').onclick = () => _showSimplifyPreview();
         document.getElementById('simplifyApplyBtn').onclick = () => _applySimplify();
+        // キャンセル：プレビューだけ消してvoxelizeモード継続
         document.getElementById('simplifyCancelBtn').onclick = () => _cancelSimplifyPreview();
-        document.getElementById('simplifyCloseBtn').onclick = () => _cancelSimplifyPreview();
+        // 終了：voxelizeモードを完全終了
+        document.getElementById('simplifyCloseBtn').onclick = () => setMode('none');
 
         // Voxelizeスライダー
         const simplifySlider = document.getElementById('simplifySlider');
@@ -3054,11 +3051,15 @@ if (changed) {
         const uiShowBtn = document.getElementById('ui-show-btn');
         uiHideBtn.addEventListener('click', () => {
             document.getElementById('ui').style.display = 'none';
+            document.body.classList.add('ui-hidden');
             uiShowBtn.style.display = 'flex';
+            setTimeout(onResize, 50);
         });
         uiShowBtn.addEventListener('click', () => {
             document.getElementById('ui').style.display = '';
+            document.body.classList.remove('ui-hidden');
             uiShowBtn.style.display = 'none';
+            setTimeout(onResize, 50);
         });
 
         // 視点ボタン
@@ -3201,6 +3202,16 @@ if (changed) {
         window.addEventListener('resize', onResize);
         // スマホでlayout確定後に再計算
         setTimeout(onResize, 100);
+
+        // ── Safari ピンチズーム防止 ──
+        // gesturestart/gesturechange はSafari独自。pageズームを防いでThree.jsに渡す
+        document.addEventListener('gesturestart',  e => e.preventDefault(), { passive: false });
+        document.addEventListener('gesturechange', e => e.preventDefault(), { passive: false });
+        document.addEventListener('gestureend',    e => e.preventDefault(), { passive: false });
+        // touchmove 2本指も防止（OrbitControlsが処理するので問題なし）
+        document.addEventListener('touchmove', e => {
+            if (e.touches.length > 1) e.preventDefault();
+        }, { passive: false });
 
         // ─────────────────────────────────────────────
         // Render loop（メイン＋サイドビュー）
