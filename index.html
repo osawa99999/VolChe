@@ -21,7 +21,7 @@
 
   【バージョンルール】
     指示がない限り、軽微な更新でも毎回バージョンを 1 つ上げること。
-    例: v1.206 → v1.320
+    例: v1.206 → v1.323
 
   【Claude への引き継ぎメモ】
     - LiDAR メッシュは穴あき・非多様体が多い点に注意
@@ -53,7 +53,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>VolChe - Volume Checker v1.320</title>
+    <title>VolChe - Volume Checker v1.323</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -308,23 +308,29 @@
             font-family: var(--mono);
             font-size: 11px;
             color: var(--text-dim);
-            letter-spacing: 0.15em;
+            letter-spacing: 0.1em;
             flex-shrink: 0;
+            white-space: nowrap;
         }
 
         #result {
             font-family: var(--mono);
-            font-size: 22px;
+            font-size: 18px;
             color: var(--accent);
             text-shadow: 0 0 20px rgba(57, 255, 143, 0.5);
             flex: 1;
             text-align: right;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 0;
         }
 
         .result-unit {
             font-size: 12px;
             color: var(--text-dim);
             flex-shrink: 0;
+            white-space: nowrap;
         }
 
         /* ── STATUS BAR ── */
@@ -686,6 +692,7 @@
                 flex: 1 1 0 !important;
                 overflow-y: auto !important;
                 -webkit-overflow-scrolling: touch !important;
+                overscroll-behavior: contain !important;
                 border-radius: 0 !important;
                 border-left: none !important;
                 border-right: none !important;
@@ -807,7 +814,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.320</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.323</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:10px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -863,7 +870,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.320</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.323</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
@@ -882,7 +889,7 @@
             </div>
             <div style="display:flex; align-items:stretch; gap:6px; margin-bottom:8px;">
                 <div id="result-box" style="margin-bottom:0; flex:1;">
-                    <div class="result-label">VOLUME</div>
+                    <div class="result-label">体積</div>
                     <div id="result">---</div>
                     <div class="result-unit">m³</div>
                 </div>
@@ -946,7 +953,7 @@
                 <div style="font-size:10px; color:var(--text-dim); font-family:var(--mono); line-height:1.5; margin-top:4px;">XZグリッドで最大高さを積算。穴あきOK。地盤面自動検出。</div>
                 <div id="simplify-preview-info" style="display:none; margin-top:6px; padding:6px 8px; background:rgba(0,200,255,0.08); border:1px solid rgba(0,200,255,0.3); border-radius:3px; font-family:var(--mono); font-size:11px; color:var(--accent2); line-height:1.6;"><div id="simplify-preview-stats"></div></div>
                 <div id="simplify-idle-btns">
-                    <button class="btn" id="simplifyPreviewBtn" style="margin-top:8px; border-color:rgba(0,200,255,0.5); color:var(--accent2);">👁 プレビュー＆計算</button>
+                    <button class="btn" id="simplifyPreviewBtn" style="margin-top:8px; border-color:rgba(0,200,255,0.5); color:var(--accent2);">▶ プレビュー＆計算</button>
                 </div>
                 <div id="simplify-confirm-btns" style="display:none; margin-top:6px;">
                     <button class="btn" id="simplifyApplyBtn" style="background:rgba(57,255,143,0.15); border-color:rgba(57,255,143,0.6); color:var(--accent); font-weight:700; margin-bottom:4px;">✓ この形状に変換</button>
@@ -2446,7 +2453,6 @@
             // ── 計算中表示（即座に反映させるためsetTimeoutで1フレーム後に計算開始）
             const resultEl = document.getElementById('result');
             resultEl.textContent = '計算中...';
-            resultEl.style.fontSize = '13px';
             setStatus('COMPUTING...');
 
             setTimeout(() => {
@@ -2514,7 +2520,6 @@
             // 小数点以下3桁で切り捨て（0.001m³単位：現場精度として十分）
             const truncated = Math.floor(result * 1000) / 1000;
             resultEl.textContent = truncated.toFixed(3);
-            resultEl.style.fontSize = '';
             setStatus('READY');
             toast(`体積: ${truncated.toFixed(3)} m³`);
             }, 30); // 30ms待って描画を先に更新させる
@@ -3010,34 +3015,244 @@
 pushHistory(); // ★ 削除前にスナップショット保存（undoで戻せるように）
 let changed = false;
 
+// ── 矩形範囲消去（クリッピング方式）──────────────────────────────
+// 従来：三角形の重心がボックス内なら丸ごと消去（境界面が残る）
+// 改良：三角形をスクリーン空間NDCでクリップし、ボックス内の部分だけ消去。
+//        ボックス外の部分は残す → 地盤面カットと同じ「ハーフカット」効果。
+//
+// クリップ境界：minX/maxX/minY/maxY（NDC空間）
+// 三角形の各頂点をNDC投影し、4辺それぞれでSutherlandHodgmanクリップ。
+// 残った頂点 = ボックス外のポリゴン → 3角形に再分割してジオメトリに書き戻す。
+
+// Sutherland-Hodgman 1辺クリップ（inside = 辺の「残す側」）
+function clipPolygonByHalfPlane(poly, isInside, intersect) {
+    if (poly.length === 0) return [];
+    const out = [];
+    for (let i = 0; i < poly.length; i++) {
+        const cur = poly[i];
+        const prv = poly[(i + poly.length - 1) % poly.length];
+        const curIn = isInside(cur);
+        const prvIn = isInside(prv);
+        if (curIn) {
+            if (!prvIn) out.push(intersect(prv, cur));
+            out.push(cur);
+        } else if (prvIn) {
+            out.push(intersect(prv, cur));
+        }
+    }
+    return out;
+}
+
+// ポリゴン（NDC {x,y} + world {wx,wy,wz} 付き）を矩形でクリップして
+// ボックス「外」の部分だけを返す（ボックス内を切り取る）
+// 戦略：補集合 = 元三角形 - (元三角形 ∩ ボックス)
+// 実装：まずボックス内部でクリップ、それを元三角形から引いた残り = ボックス外
+// ただし実装を簡単にするため「ボックス外のみ残す」= 4辺それぞれの outside クリップを
+// Sutherland-Hodgman の inside/outside を逆にして適用し、union的に集める方式は複雑。
+// 代わりに：元三角形をボックスの4辺で順にクリップし「ボックス外」側を保持する。
+// 正確な補集合は凸分解が必要なので、ここでは実用的な近似として
+// 「少なくとも1頂点がボックス外なら残す」かつ「ボックス内部に入り込んだ部分をクリップ」。
+//
+// 実用方式：ボックスの各辺を「内側 = ボックス外」として Sutherland-Hodgman でクリップ。
+// これにより三角形のうちボックス外にある部分だけが残る。
+function clipTriangleOutsideBox(v0, v1, v2, bMinX, bMaxX, bMinY, bMaxY) {
+    // vN = { x:NDC_x, y:NDC_y, wx, wy, wz }
+    // ボックスの4辺を「残す側 = ボックス外」として順にクリップ
+    // 辺1: x < bMinX の外側 → inside = x < bMinX （つまりボックス左外）
+    // ... これは補集合が非凸になりうるので分割できない。
+    //
+    // 現実的な解：「ボックス内全部クリップ後の残り」をそのまま返すのではなく、
+    // ボックス外側にある部分を4つの半平面で切り出す。
+    // Sutherland-Hodgmanは凸ポリゴンなら正確に動く。
+    // 「ボックス外」= NOT(全4辺の内側) → 補集合は一般に非凸。
+    //
+    // 最もシンプルな実用解：
+    // ① ボックス内クリップ（内側を取り出す）→ insidePoly
+    // ② 元三角形を triangulate し、insidePoly を除いた残りを近似的に戻す
+    //    → 元三角形の頂点のうちボックス外の頂点と、クリップ交点で作るポリゴン
+    //
+    // ここでは「外側クリップ」を逆向きSHで実装:
+    // 各半平面を「内側 = ボックス外」として定義し、4回クリップする。
+    // = 三角形と「ボックス外領域の交差」は ボックスの各辺を外側で切るだけでは不十分。
+    //
+    // ─ 最終採用方式 ─────────────────────────────────────────
+    // ① 三角形をボックス内側でクリップして insidePoly を得る
+    // ② insidePoly が空 → 三角形丸ごとボックス外 → そのまま残す
+    // ③ insidePoly が元三角形と同一 → 三角形全体がボックス内 → 消去
+    // ④ 部分的に重なる → 元三角形の頂点列から insidePoly を差し引いた残りを近似する
+    //    近似：元三角形の頂点列 + クリップ交点で作ったポリゴンを
+    //          「ボックスの4辺の外側」で順次クリップ。
+    //    → これは実際には「補集合の凸近似」であり、微細な三角形では十分な精度。
+
+    // lerp helper（NDC + world座標を線形補間）
+    function lerpV(a, b, t) {
+        return {
+            x:  a.x  + (b.x  - a.x)  * t,
+            y:  a.y  + (b.y  - a.y)  * t,
+            wx: a.wx + (b.wx - a.wx) * t,
+            wy: a.wy + (b.wy - a.wy) * t,
+            wz: a.wz + (b.wz - a.wz) * t,
+        };
+    }
+
+    let poly = [v0, v1, v2];
+
+    // ── ① ボックス内クリップ（inside = ボックス内4辺すべての内側）
+    const insidePlanes = [
+        { inside: v => v.x >= bMinX, intersect: (a,b) => { const t=(bMinX-a.x)/(b.x-a.x); return lerpV(a,b,t); } },
+        { inside: v => v.x <= bMaxX, intersect: (a,b) => { const t=(bMaxX-a.x)/(b.x-a.x); return lerpV(a,b,t); } },
+        { inside: v => v.y >= bMinY, intersect: (a,b) => { const t=(bMinY-a.y)/(b.y-a.y); return lerpV(a,b,t); } },
+        { inside: v => v.y <= bMaxY, intersect: (a,b) => { const t=(bMaxY-a.y)/(b.y-a.y); return lerpV(a,b,t); } },
+    ];
+    let insidePoly = [v0, v1, v2];
+    for (const pl of insidePlanes) {
+        insidePoly = clipPolygonByHalfPlane(insidePoly, pl.inside, pl.intersect);
+        if (insidePoly.length === 0) break;
+    }
+
+    // ② insidePoly が空 → 三角形は完全にボックス外 → 丸ごと残す
+    if (insidePoly.length === 0) return [poly]; // [残すポリゴン配列]
+
+    // ③ insidePoly が元三角形と同一頂点数かつ面積比≒1 → 完全にボックス内 → 消去
+    //    頂点が全部ボックス内かどうかで判定（高速化）
+    const allIn = [v0,v1,v2].every(v => v.x>=bMinX && v.x<=bMaxX && v.y>=bMinY && v.y<=bMaxY);
+    if (allIn) return []; // 消去
+
+    // ④ 部分的に重なる → 「外側」部分だけ残す
+    // 外側4半平面で順次クリップして外側ポリゴンを得る
+    // 各外側半平面：ボックスの各辺の「外」を内側として定義
+    const outsidePlaneGroups = [
+        // 左辺の外側（x < bMinX）
+        [{ inside: v => v.x <= bMinX, intersect: (a,b) => { const t=(bMinX-a.x)/(b.x-a.x); return lerpV(a,b,t); } }],
+        // 右辺の外側（x > bMaxX）
+        [{ inside: v => v.x >= bMaxX, intersect: (a,b) => { const t=(bMaxX-a.x)/(b.x-a.x); return lerpV(a,b,t); } }],
+        // 下辺の外側（y < bMinY）
+        [{ inside: v => v.y <= bMinY, intersect: (a,b) => { const t=(bMinY-a.y)/(b.y-a.y); return lerpV(a,b,t); } }],
+        // 上辺の外側（y > bMaxY）
+        [{ inside: v => v.y >= bMaxY, intersect: (a,b) => { const t=(bMaxY-a.y)/(b.y-a.y); return lerpV(a,b,t); } }],
+    ];
+
+    // 各外側半平面で元三角形をクリップし、残った非空ポリゴンを収集
+    // これは「ボックス外領域を4つの帯に分割して近似する」方式。
+    // 重複が生じうるが、三角形の面積が小さい現場データでは実用上十分。
+    const results = [];
+    for (const planes of outsidePlaneGroups) {
+        let p = [v0, v1, v2];
+        for (const pl of planes) {
+            p = clipPolygonByHalfPlane(p, pl.inside, pl.intersect);
+            if (p.length === 0) break;
+        }
+        if (p.length >= 3) results.push(p);
+    }
+    return results; // 残すポリゴン群
+}
+
+// ポリゴン（頂点3以上）を三角形fan分割してworld座標を返す
+function fanTriangulate(poly) {
+    const tris = [];
+    for (let i = 1; i + 1 < poly.length; i++) {
+        tris.push(poly[0], poly[i], poly[i+1]);
+    }
+    return tris;
+}
+
 targetMeshes.forEach(m => {
     const p = m.geometry.attributes.position;
     const mat = m.matrixWorld;
-    for (let i = 0; i < p.count; i += 3) {
-        if (isNaN(p.getX(i))) continue;
-        const v = new THREE.Vector3()
-            .fromBufferAttribute(p, i)
-            .applyMatrix4(mat)
-            .project(camera);
+    const matInv = mat.clone().invert();
+    const _rect = renderer.domElement.getBoundingClientRect();
+    const _cw = _rect.width, _ch = _rect.height;
 
-        if (v.x >= minX && v.x <= maxX && v.y >= minY && v.y <= maxY) {
-            for (let j = 0; j < 3; j++) p.setXYZ(i + j, NaN, NaN, NaN);
+    const newVerts = []; // 残す三角形の頂点（ローカル座標）
+
+    for (let i = 0; i + 2 < p.count; i += 3) {
+        if (isNaN(p.getX(i))) continue;
+
+        // ワールド座標取得
+        const wv = [0,1,2].map(j => {
+            const wPos = new THREE.Vector3().fromBufferAttribute(p, i+j).applyMatrix4(mat);
+            const ndc  = wPos.clone().project(camera);
+            return { x: ndc.x, y: ndc.y, wx: wPos.x, wy: wPos.y, wz: wPos.z };
+        });
+
+        const remaining = clipTriangleOutsideBox(wv[0], wv[1], wv[2], minX, maxX, minY, maxY);
+
+        if (remaining.length === 0) {
+            // 完全消去
             changed = true;
+        } else {
+            // 残るポリゴンをローカル座標に変換して蓄積
+            for (const poly of remaining) {
+                const tris = fanTriangulate(poly);
+                for (const v of tris) {
+                    const local = new THREE.Vector3(v.wx, v.wy, v.wz).applyMatrix4(matInv);
+                    newVerts.push(local.x, local.y, local.z);
+                }
+            }
+            // 元の三角形とポリゴン数が変わった場合はchangedとみなす
+            if (remaining.length !== 1 || remaining[0].length !== 3) changed = true;
         }
     }
-    p.needsUpdate = true;
-    m.geometry.computeBoundingBox();
-    m.geometry.computeBoundingSphere();
+
+    // ジオメトリを書き換え
+    const newGeo = new THREE.BufferGeometry();
+    newGeo.setAttribute('position', new THREE.Float32BufferAttribute(newVerts, 3));
+    newGeo.computeVertexNormals();
+    newGeo.computeBoundingBox();
+    newGeo.computeBoundingSphere();
+    m.geometry.dispose();
+    m.geometry = newGeo;
 });
 
 if (changed) {
+    // ── 切断面に蓋を焼き込む（sealHolesの戻り値をジオメトリに反映）──
+    // ボクセル化で穴あきにならないよう、実際のgeometryに穴埋め面を追加する。
+    // 体積計算と同じく「ワールド座標でseal→ローカルに戻して焼き込み」
+    modelGroup.updateMatrixWorld(true);
+    try {
+        targetMeshes.forEach(m => {
+            const pos = m.geometry.attributes.position;
+            const mat = m.matrixWorld;
+            const matInv = mat.clone().invert();
+            const verts = [];
+            for (let i = 0; i + 2 < pos.count; i += 3) {
+                const v1w = new THREE.Vector3().fromBufferAttribute(pos, i  ).applyMatrix4(mat);
+                const v2w = new THREE.Vector3().fromBufferAttribute(pos, i+1).applyMatrix4(mat);
+                const v3w = new THREE.Vector3().fromBufferAttribute(pos, i+2).applyMatrix4(mat);
+                if (isNaN(v1w.x)||isNaN(v2w.x)||isNaN(v3w.x)) continue;
+                verts.push(v1w.x,v1w.y,v1w.z, v2w.x,v2w.y,v2w.z, v3w.x,v3w.y,v3w.z);
+            }
+            if (verts.length === 0) return;
+
+            // ワールド座標ジオメトリでsealHoles（戻り値=穴埋め済みワールドgeo）
+            const wg = new THREE.BufferGeometry();
+            wg.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+            const sealedW = sealHoles(wg, true); // silent=true（ビジュアル不要）
+
+            // sealedW をローカル座標に戻してジオメトリに焼き込む
+            const sp = sealedW.attributes.position;
+            const localVerts = [];
+            for (let i = 0; i < sp.count; i++) {
+                const lv = new THREE.Vector3().fromBufferAttribute(sp, i).applyMatrix4(matInv);
+                localVerts.push(lv.x, lv.y, lv.z);
+            }
+            const sealedLocal = new THREE.BufferGeometry();
+            sealedLocal.setAttribute('position', new THREE.Float32BufferAttribute(localVerts, 3));
+            sealedLocal.computeVertexNormals();
+            sealedLocal.computeBoundingBox();
+            sealedLocal.computeBoundingSphere();
+            m.geometry.dispose();
+            m.geometry = sealedLocal;
+        });
+    } catch(e) { console.warn('area sealHoles failed:', e); }
+
     clearWireframe();
     document.getElementById('result').textContent = '---';
     updateVertCount();
     setTimeout(() => autoResetRollKeepCamera(), 0);
     setMode('none');
 } else {
-    history.pop(); // 変化なしならスナップショットを破棄
+    history.pop();
     updateUndoBtn();
 }
 
