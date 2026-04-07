@@ -21,25 +21,64 @@
 
   【バージョンルール】
     指示がない限り、軽微な更新でも毎回バージョンを 1 つ上げること。
-    例: v1.206 → v1.323
+    例: v1.206 → v1.1400
 
   【Claude への引き継ぎメモ】
+    ─ LiDARメッシュ全般 ─
     - LiDAR メッシュは穴あき・非多様体が多い点に注意
     - sealHoles はファン三角形方式のため大きな開口部で誤差が出やすい
-    - ボクセル化（v1.319～）：高さマップ（2.5D）方式
-      XZグリッドの各セルで最大Y頂点を取得→地盤面（Y下位5%中央値）との差を積算
-      ★ sealHolesはボクセル化計算から完全切り離し済み（v1.212～）
-      ★ BFS外側判定を廃止、スキャンライン内側判定に移行（v1.319～）
-        BFSは球面メッシュのギャップから外側が内側に「漏れる」バグがあった。
-        代替：行・列それぞれの有効セル両端範囲で内側を特定するスキャンライン方式。
-        外側 -Infinity セル → 生成ループでskip → 幽霊ボクセル根絶。
-        内側 -Infinity セル → 最大50パス平均補完 → 頂上穴を正確に埋める。
-      グリッドサイズ: 2〜30cm 固定
-      体積 = Σ(セル面積 × (最大Y - 地盤Y))
-      穴あき・非閉メッシュ・頂部欠損に強い。平地前提。
     - カット体積の誤差（球体半分で約5%）は許容範囲と判断済み
+
+    ─ ボクセル化（v1.319～） ─
+    - 高さマップ（2.5D）方式
+      XZグリッドの各セルで最大Y頂点を取得→地盤面（Y下位5%中央値）との差を積算
+    - sealHolesはボクセル化計算から完全切り離し済み（v1.212～）
+    - BFS外側判定を廃止、スキャンライン内側判定に移行（v1.319～）
+      BFSは球面メッシュのギャップから外側が内側に「漏れる」バグがあった。
+      代替：行・列それぞれの有効セル両端範囲で内側を特定するスキャンライン方式。
+      外側 -Infinity セル → 生成ループでskip → 幽霊ボクセル根絶。
+      内側 -Infinity セル → 最大50パス平均補完 → 頂上穴を正確に埋める。
+    - グリッドサイズ: 2〜30cm 固定
+    - 体積 = Σ(セル面積 × (最大Y - 地盤Y))
+    - 穴あき・非閉メッシュ・頂部欠損に強い。平地前提。
+
+    ─ UI構成（v1.1400時点） ─
+    - スマホ（max-width:430px）: 上半分=canvas、下半分=#ui（スクロール可）
+      overscroll-behavior:contain でiPhone慣性スクロールの上位伝播を防止済み
+    - タブレット/PC（max-width:768px超）: 左パネル=#ui、右上=#view-panel
+    - ハンバーガーボタン（768px以下）でパネル開閉
+    - UIの表示/非表示はOFF/ONテキストボタン（目玉アイコン廃止）
+    - mode-badge（画面上部）の解除ボタンは<button>タグ＋touchendで確実動作
+
+    ─ 各モードのcontrols.enabled ─
+    - 'none' / 'voxelize' / 'cutter' / 'measure': OrbitControls有効（パン・ズーム可）
+    - 'single' / 'area' / 'lasso': OrbitControls無効（誤操作防止）
+
+    ─ 矩形範囲消去（v1.320～） ─
+    - Sutherland-HodgmanアルゴリズムでスクリーンNDC空間クリッピング
+    - 完全ボックス外→残す / 完全ボックス内→消去 / 境界面→外側部分だけ残す
+    - 消去後にsealHoles(wg, true)でジオメトリに穴埋め面を焼き込む（v1.323～）
+      silent=true でビジュアル表示はスキップ、戻り値をローカル座標に変換して焼く
+      ★ これによりボクセル化前に矩形消去しても穴なし状態を保てる
+
+    ─ 体積計算 ─
+    - calcVolume()：ダイバージェンス定理、ワールド座標変換→sealHoles→積分
+    - 計算ボタン押下時に「計算中...」表示（setTimeoutで1フレーム先に計算開始）
+    - sealHolesはビジュアル用（緑ワイヤー）と体積計算用を兼用
+      ただし矩形消去後の焼き込みはsilent=trueで呼び出し区別している
+
+    ─ 範囲外消去（ラッソ） ─
+    - 未描画時：lassoClearBtn=「解除（戻る）」→setMode('none')
+    - 描画完了後：lassoClearBtn=「描き直し」→clearLasso()して再描画
+    - lassoFinished フラグでupdateLassoExecBtn()が両ボタン状態を管理
+
+    ─ result-box（体積表示） ─
+    - flexレイアウトで「体積」ラベル＋数値＋m³＋「▶ 計算」ボタンを1行に配置
+    - 数値フォントsize:18px、white-space:nowrap で切れ・改行を防止
+    - 「計算中...」もnowrapで改行しない
 ================================================================================
 -->
+
 <!DOCTYPE html>
 <html lang="ja">
 
@@ -53,7 +92,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>VolChe - Volume Checker v1.323</title>
+    <title>VolChe - Volume Checker v1.1400</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -814,7 +853,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.323</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.1400</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:10px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -870,7 +909,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.323</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.1400</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
