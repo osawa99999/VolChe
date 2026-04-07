@@ -21,7 +21,7 @@
 
   【バージョンルール】
     指示がない限り、軽微な更新でも毎回バージョンを 1 つ上げること。
-    例: v1.206 → v1.319
+    例: v1.206 → v1.320
 
   【Claude への引き継ぎメモ】
     - LiDAR メッシュは穴あき・非多様体が多い点に注意
@@ -53,7 +53,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>VolChe - Volume Checker v1.319</title>
+    <title>VolChe - Volume Checker v1.320</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -260,12 +260,13 @@
             background: linear-gradient(90deg, var(--accent) var(--pct, 50%), #222 var(--pct, 50%));
             border-radius: 2px;
             cursor: pointer;
+            touch-action: none;
         }
 
         .simplify-row input[type=range]::-webkit-slider-thumb {
             -webkit-appearance: none;
-            width: 14px;
-            height: 14px;
+            width: 22px;
+            height: 22px;
             background: var(--accent);
             border-radius: 50%;
         }
@@ -284,11 +285,14 @@
             background: #000;
             border: 1px solid var(--border-bright);
             border-radius: 3px;
-            padding: 14px;
-            text-align: center;
-            margin-bottom: 10px;
+            padding: 8px 12px;
+            text-align: left;
+            margin-bottom: 8px;
             position: relative;
             overflow: hidden;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
         #result-box::before {
@@ -300,23 +304,25 @@
 
         .result-label {
             font-family: var(--mono);
-            font-size: 12px;
+            font-size: 11px;
             color: var(--text-dim);
             letter-spacing: 0.15em;
-            margin-bottom: 4px;
+            flex-shrink: 0;
         }
 
         #result {
             font-family: var(--mono);
-            font-size: 28px;
+            font-size: 22px;
             color: var(--accent);
             text-shadow: 0 0 20px rgba(57, 255, 143, 0.5);
+            flex: 1;
+            text-align: right;
         }
 
         .result-unit {
-            font-size: 13px;
+            font-size: 12px;
             color: var(--text-dim);
-            margin-top: 2px;
+            flex-shrink: 0;
         }
 
         /* ── STATUS BAR ── */
@@ -449,11 +455,18 @@
             font-size: 13px;
             color: #000;
             background: var(--warn);
+            border: none;
             border-radius: 12px;
             padding: 5px 16px;
             letter-spacing: 0.04em;
             white-space: nowrap;
             font-weight: 700;
+            cursor: pointer;
+            font-family: var(--mono);
+            -webkit-tap-highlight-color: rgba(255,107,43,0.3);
+            touch-action: manipulation;
+            min-height: 36px;
+            min-width: 60px;
         }
 
         body.mode-select canvas {
@@ -780,7 +793,7 @@
 
     <!-- スマホ用ハンバーガーボタン -->
     <button class="hamburger-btn" id="hamburger-main" aria-label="メインメニュー">☰</button>
-    <button class="hamburger-btn" id="hamburger-view" aria-label="ビューメニュー">◉</button>
+    <button class="hamburger-btn" id="hamburger-view" aria-label="ビューメニュー" style="font-size:13px; font-family:var(--mono); letter-spacing:0.05em;">VIEW</button>
 
     <!-- パネル開閉時の背景オーバーレイ -->
     <div id="panel-overlay"></div>
@@ -792,7 +805,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.319</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.320</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:10px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -848,8 +861,8 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.319</span>
-            <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:none; border:none; color:var(--text-dim); font-size:16px; cursor:pointer; padding:0 4px; line-height:1; touch-action:manipulation; opacity:0.6;">👁</button>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.320</span>
+            <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
         <!-- メインメニュー -->
@@ -947,13 +960,13 @@
     </div>
 
     <!-- UI非表示時の再表示ボタン -->
-    <button id="ui-show-btn" title="UIを表示" style="display:none; position:fixed; bottom:20px; left:12px; z-index:300; background:var(--panel); border:1px solid var(--border-bright); border-radius:50%; width:44px; height:44px; font-size:20px; cursor:pointer; align-items:center; justify-content:center; box-shadow:0 0 16px rgba(57,255,143,0.2); touch-action:manipulation;">🙈</button>
+    <button id="ui-show-btn" title="UIを表示" style="display:none; position:fixed; bottom:20px; left:12px; z-index:300; background:var(--panel); border:1px solid var(--border-bright); border-radius:3px; padding:6px 12px; font-size:12px; font-family:var(--mono); color:var(--accent); cursor:pointer; align-items:center; justify-content:center; box-shadow:0 0 16px rgba(57,255,143,0.2); touch-action:manipulation; letter-spacing:0.08em;">ON</button>
 
     <!-- VIEW PANEL (右上フロート) -->
     <div id="view-panel">
         <!-- スマホ用トグルヘッダー -->
         <div id="view-panel-toggle" style="display:none; cursor:pointer; font-family:var(--mono); font-size:11px; color:var(--accent); letter-spacing:0.15em; padding:2px 0 6px; user-select:none;">
-            👁 VIEW <span id="view-panel-arrow">▼</span>
+            VIEW <span id="view-panel-arrow">▼</span>
         </div>
         <div id="view-panel-body">
         <div class="section-label">View</div>
@@ -2556,13 +2569,26 @@
             updateLassoExecBtn();
         }
 
-        // 消去実行ボタンをlassoFinishedに連動
+        // 消去実行ボタンとlassoClearBtnをlassoFinishedに連動
         function updateLassoExecBtn() {
             const btn = document.getElementById('lassoExecBtn');
+            const clearBtn = document.getElementById('lassoClearBtn');
             if (!btn) return;
             btn.disabled = !lassoFinished;
             btn.style.opacity = lassoFinished ? '1' : '0.35';
             btn.style.cursor  = lassoFinished ? 'pointer' : 'not-allowed';
+            // 未描画時は「解除（戻る）」、描画完了後は「描き直し」
+            if (clearBtn) {
+                if (lassoFinished) {
+                    clearBtn.textContent = '✕ 描き直し';
+                    clearBtn.style.borderColor = '';
+                    clearBtn.style.color = '';
+                } else {
+                    clearBtn.textContent = '← 解除（戻る）';
+                    clearBtn.style.borderColor = 'rgba(255,107,43,0.4)';
+                    clearBtn.style.color = 'var(--warn)';
+                }
+            }
         }
 
         // ラッソラインを Canvas に描画（lassoPointsはclientXY、描画はcanvas相対座標に変換）
@@ -2744,6 +2770,8 @@
                 if (mode === 'cutter')   document.getElementById('cutter-ui').style.display   = 'block';
                 if (mode === 'measure')  document.getElementById('measure-panel').style.display = 'block';
                 if (mode === 'voxelize') document.getElementById('simplify-panel').style.display = 'block';
+                // ラッソモードに入った直後はボタン状態を初期化（未描画→「解除（戻る）」）
+                if (mode === 'lasso') updateLassoExecBtn();
             }
 
             // ── ボタン色ON ──
@@ -2776,26 +2804,42 @@
             }
 
             // ── モードバッジ（1行コンパクト）──
+            const _cancelBtn = '<button class="cancel-hint" id="badge-cancel-btn">✕ 解除</button>';
             if (mode === 'single') {
-                modeBadge.innerHTML = '⊘ 個別指定消去 <span class="cancel-hint">✕ 解除</span>';
+                modeBadge.innerHTML = '⊘ 個別指定消去 ' + _cancelBtn;
                 modeBadge.classList.add('active'); setStatus('MODE: SINGLE DEL');
             } else if (mode === 'area') {
-                modeBadge.innerHTML = '⊘ 矩形範囲消去 <span class="cancel-hint">✕ 解除</span>';
+                modeBadge.innerHTML = '⊘ 矩形範囲消去 ' + _cancelBtn;
                 modeBadge.classList.add('active'); setStatus('MODE: AREA DEL');
             } else if (mode === 'lasso') {
-                modeBadge.innerHTML = '✏ 範囲外消去 ― 指でなぞる <span class="cancel-hint">✕ 解除</span>';
+                modeBadge.innerHTML = '✏ 範囲外消去 ― 指でなぞる ' + _cancelBtn;
                 modeBadge.classList.add('active'); setStatus('MODE: LASSO DEL');
             } else if (mode === 'measure') {
-                modeBadge.innerHTML = '📏 距離測定 ― 2点タップ <span class="cancel-hint">✕ 解除</span>';
+                modeBadge.innerHTML = '📏 距離測定 ― 2点タップ ' + _cancelBtn;
                 modeBadge.classList.add('active'); setStatus('MODE: MEASURE');
             } else if (mode === 'cutter') {
-                modeBadge.innerHTML = '✂ 地盤面カット <span class="cancel-hint">✕ 解除</span>';
+                modeBadge.innerHTML = '✂ 地盤面カット ' + _cancelBtn;
                 modeBadge.classList.add('active'); setStatus('MODE: CUTTER');
             } else if (mode === 'voxelize') {
-                modeBadge.innerHTML = '🧱 ボクセル化計算中... <span class="cancel-hint">✕ キャンセル</span>';
+                modeBadge.innerHTML = '🧱 ボクセル化 <button class="cancel-hint" id="badge-cancel-btn">✕ キャンセル</button>';
                 modeBadge.classList.add('active'); setStatus('VOXELIZING...');
             } else {
                 modeBadge.classList.remove('active'); setStatus('READY');
+            }
+            // badge内のキャンセルボタンに直接イベントを付ける（innerHTML再生成のたびに付け直し）
+            const _badgeCancelBtn = document.getElementById('badge-cancel-btn');
+            if (_badgeCancelBtn) {
+                _badgeCancelBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (mode === 'voxelize') { _cancelSimplifyPreview(); setMode('none'); return; }
+                    setMode('none');
+                });
+                _badgeCancelBtn.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (mode === 'voxelize') { _cancelSimplifyPreview(); setMode('none'); return; }
+                    setMode('none');
+                }, { passive: false });
             }
         }
 
@@ -3035,6 +3079,12 @@ if (changed) {
         };
         document.getElementById('lassoExecBtn').onclick = executeLasso;
         document.getElementById('lassoClearBtn').onclick = () => {
+            if (!lassoFinished) {
+                // 未描画（ラインが完成していない）→ラッソモードを終了してメインメニューへ
+                setMode('none');
+                return;
+            }
+            // 描画完了後→描き直し
             clearLasso();
             const lc = document.getElementById('lasso-canvas');
             sizeLassoCanvas();
