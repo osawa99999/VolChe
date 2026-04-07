@@ -21,7 +21,7 @@
 
   【バージョンルール】
     指示がない限り、軽微な更新でも毎回バージョンを 1 つ上げること。
-    例: v1.206 → v1.1400
+    例: v1.206 → v1.1401
 
   【Claude への引き継ぎメモ】
     ─ LiDARメッシュ全般 ─
@@ -42,7 +42,7 @@
     - 体積 = Σ(セル面積 × (最大Y - 地盤Y))
     - 穴あき・非閉メッシュ・頂部欠損に強い。平地前提。
 
-    ─ UI構成（v1.1400時点） ─
+    ─ UI構成（v1.1401時点） ─
     - スマホ（max-width:430px）: 上半分=canvas、下半分=#ui（スクロール可）
       overscroll-behavior:contain でiPhone慣性スクロールの上位伝播を防止済み
     - タブレット/PC（max-width:768px超）: 左パネル=#ui、右上=#view-panel
@@ -92,7 +92,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>VolChe - Volume Checker v1.1400</title>
+    <title>VolChe - Volume Checker v1.1401</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -821,9 +821,14 @@
 
             /* ボタンタッチサイズ確保（UIエリア内は少しコンパクトに） */
             #ui .btn { min-height: 40px !important; font-size: 13px !important; }
+            /* btn-accentはmin-height上書きしない（result-boxと高さを合わせるため） */
+            #ui .btn-accent { min-height: unset !important; }
             #ui .panel-body { padding: 10px 12px !important; }
             #ui .section { margin-bottom: 10px !important; }
             #ui .panel-header { padding: 8px 12px !important; }
+            /* result-boxはスマホで幅が狭いのでフォントを縮小 */
+            #result { font-size: 15px !important; }
+            .result-label { font-size: 10px !important; letter-spacing: 0.05em !important; }
 
             /* drop-box縮小 */
             .drop-box { padding: 16px 24px !important; }
@@ -853,7 +858,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.1400</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.1401</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:10px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -909,7 +914,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.1400</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.1401</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
@@ -1580,8 +1585,9 @@
  
 // --- カット後の形を新しい基準にする ---
 
-        // カット後に自動で座標正規化（カメラ位置維持）
+        // カット後に自動で座標正規化（カメラ位置維持）＋メインメニューへ戻る
         setTimeout(() => autoResetRollKeepCamera(), 0);
+        setMode('none');
 
         }
 
@@ -2917,6 +2923,16 @@
             e.target.dispatchEvent(me);
         }
         renderer.domElement.addEventListener('touchstart',  e => touchToMouse(e, 'mousedown'),  { passive: false });
+        // iPhoneスマホレイアウト時はcanvasがrelative配置になるためwindowでも補足
+        window.addEventListener('touchstart', e => {
+            if (mode !== 'area') return;
+            const canvasRect = renderer.domElement.getBoundingClientRect();
+            const t = e.changedTouches[0];
+            if (t.clientY >= canvasRect.top && t.clientY <= canvasRect.bottom &&
+                t.clientX >= canvasRect.left && t.clientX <= canvasRect.right) {
+                touchToMouse(e, 'mousedown');
+            }
+        }, { passive: false });
         window.addEventListener('touchmove',  e => {
             if (mode === 'lasso' || mode === 'area') {
                 const t = e.changedTouches[0];
