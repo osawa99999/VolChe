@@ -21,7 +21,7 @@
 
   【バージョンルール】
     指示がない限り、軽微な更新でも毎回バージョンを 1 つ上げること。
-    例: v1.206 → v1.1403
+    例: v1.206 → v1.1404
 
   【Claude への引き継ぎメモ】
     ─ LiDARメッシュ全般 ─
@@ -42,7 +42,7 @@
     - 体積 = Σ(セル面積 × (最大Y - 地盤Y))
     - 穴あき・非閉メッシュ・頂部欠損に強い。平地前提。
 
-    ─ UI構成（v1.1403時点） ─
+    ─ UI構成（v1.1404時点） ─
     - スマホ（max-width:430px）: 上半分=canvas、下半分=#ui（スクロール可）
       overscroll-behavior:contain でiPhone慣性スクロールの上位伝播を防止済み
     - タブレット/PC（max-width:768px超）: 左パネル=#ui、右上=#view-panel
@@ -92,7 +92,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>VolChe - Volume Checker v1.1403</title>
+    <title>VolChe - Volume Checker v1.1404</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -873,7 +873,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.1403</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.1404</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB / OBJ ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:10px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -930,7 +930,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.1403</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.1404</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
@@ -2829,256 +2829,40 @@
             if (lassoPoints.length < 3) { toast('もう少し大きく描いてね', true); return; }
             if (targetMeshes.length === 0) { toast('先にファイルを読み込んでね', true); return; }
 
-            // シンプル確認ダイアログ
             const ok = confirm(
                 '範囲外消去を実行してもいいですか？\n' +
                 '※ やってみてダメなら「元に戻す」を押してね！'
             );
             if (!ok) return;
 
-            // ── Douglas-Peuckerで手書き点列を間引き ──
-            // ε = スクリーン幅の1.5%程度（手ブレ除去）
-            function dpReduce(pts, eps) {
-                if (pts.length <= 2) return pts;
-                let maxD = 0, idx = 0;
-                const p0 = pts[0], pN = pts[pts.length - 1];
-                const dx = pN.x - p0.x, dy = pN.y - p0.y;
-                const len = Math.sqrt(dx*dx + dy*dy) || 1;
-                for (let i = 1; i < pts.length - 1; i++) {
-                    const d = Math.abs((pN.y - p0.y)*pts[i].x - (pN.x - p0.x)*pts[i].y + pN.x*p0.y - pN.y*p0.x) / len;
-                    if (d > maxD) { maxD = d; idx = i; }
-                }
-                if (maxD > eps) {
-                    const l = dpReduce(pts.slice(0, idx + 1), eps);
-                    const r = dpReduce(pts.slice(idx), eps);
-                    return l.slice(0, -1).concat(r);
-                }
-                return [p0, pN];
-            }
-            const _rect = renderer.domElement.getBoundingClientRect();
-            const eps = _rect.width * 0.015;
-            const reduced = dpReduce(lassoPoints, eps);
-            // 閉じたポリゴンとして扱う（始点=終点は重複させない）
-            const lassoNDC = reduced.map(p => ({
-                x: ((p.x - _rect.left) / _rect.width)  * 2 - 1,
-                y: -(((p.y - _rect.top)  / _rect.height) * 2 - 1)
-            }));
-
-            // ── ラッソポリゴンの各辺を「内側 = ポリゴン内」として定義 ──
-            // Sutherland-Hodgmanで三角形をラッソ内側でクリップ
-            // →「内側に残す」= ラッソ内部の部分を取り出す
-            // →「外側に残す」= 内側の補集合 → 矩形消去と同じ帯分割近似
-
-            // 辺(A→B)の内側判定：左側 (CCW) を内側とする
-            function edgeInside(A, B, P) {
-                return (B.x - A.x) * (P.y - A.y) - (B.y - A.y) * (P.x - A.x) >= 0;
-            }
-            function edgeIntersect(A, B, C, D) {
-                // 辺AB と 辺CD の交点
-                const a1 = B.y - A.y, b1 = A.x - B.x, c1 = a1*A.x + b1*A.y;
-                const a2 = D.y - C.y, b2 = C.x - D.x, c2 = a2*C.x + b2*C.y;
-                const det = a1*b2 - a2*b1;
-                if (Math.abs(det) < 1e-10) return { x:(A.x+B.x)/2, y:(A.y+B.y)/2, wx:0,wy:0,wz:0 };
-                return {
-                    x: (c1*b2 - c2*b1) / det,
-                    y: (a1*c2 - a2*c1) / det,
-                    wx: 0, wy: 0, wz: 0  // world座標は後で補間
-                };
-            }
-
-            // lerpV（矩形消去と共用）
-            function lerpVL(a, b, t) {
-                return { x: a.x+(b.x-a.x)*t, y: a.y+(b.y-a.y)*t,
-                         wx: a.wx+(b.wx-a.wx)*t, wy: a.wy+(b.wy-a.wy)*t, wz: a.wz+(b.wz-a.wz)*t };
-            }
-
-            // ラッソポリゴンが CCW かどうか確認して、CW なら逆順にする
-            // （edgeInsideはCCWポリゴン前提）
-            function polygonArea(pts) {
-                let s = 0;
-                for (let i = 0; i < pts.length; i++) {
-                    const j = (i+1) % pts.length;
-                    s += pts[i].x * pts[j].y - pts[j].x * pts[i].y;
-                }
-                return s / 2;
-            }
-            if (polygonArea(lassoNDC) < 0) lassoNDC.reverse();
-
-            // SH クリップ：poly を lassoNDC の各辺でクリップして「内側」を返す
-            function clipByLasso(poly) {
-                let out = poly;
-                const n = lassoNDC.length;
-                for (let ei = 0; ei < n; ei++) {
-                    if (out.length === 0) break;
-                    const A = lassoNDC[ei], B = lassoNDC[(ei+1) % n];
-                    const next = [];
-                    for (let i = 0; i < out.length; i++) {
-                        const cur = out[i], prv = out[(i + out.length - 1) % out.length];
-                        const curIn = edgeInside(A, B, cur);
-                        const prvIn = edgeInside(A, B, prv);
-                        if (curIn) {
-                            if (!prvIn) {
-                                // prv→cur の交点を追加
-                                const t_num = (A.y-prv.y)*(B.x-A.x) - (A.x-prv.x)*(B.y-A.y);
-                                const t_den = (cur.x-prv.x)*(B.y-A.y) - (cur.y-prv.y)*(B.x-A.x);
-                                const t = Math.abs(t_den) < 1e-10 ? 0 : t_num / t_den;
-                                next.push(lerpVL(prv, cur, t));
-                            }
-                            next.push(cur);
-                        } else if (prvIn) {
-                            const t_num = (A.y-prv.y)*(B.x-A.x) - (A.x-prv.x)*(B.y-A.y);
-                            const t_den = (cur.x-prv.x)*(B.y-A.y) - (cur.y-prv.y)*(B.x-A.x);
-                            const t = Math.abs(t_den) < 1e-10 ? 0 : t_num / t_den;
-                            next.push(lerpVL(prv, cur, t));
-                        }
-                    }
-                    out = next;
-                }
-                return out;
-            }
-
-            // 三角形をラッソ外側でクリップして「外側に残るポリゴン群」を返す
-            // 矩形消去と同様の帯分割近似：各辺の外側で切り出す
-            function clipTriangleOutsideLasso(v0, v1, v2) {
-                const poly = [v0, v1, v2];
-
-                // まず内側クリップ
-                const insidePoly = clipByLasso(poly);
-                if (insidePoly.length === 0) return [poly]; // 完全外側→丸ごと残す
-
-                // 全頂点がラッソ内→消去
-                const allIn = [v0,v1,v2].every(v => edgesAllInside(v));
-                if (allIn) return [];
-
-                // 部分的→各辺の外側で切り出す（帯分割近似）
-                const n = lassoNDC.length;
-                const results = [];
-                for (let ei = 0; ei < n; ei++) {
-                    const A = lassoNDC[ei], B = lassoNDC[(ei+1) % n];
-                    // 「この辺の外側」= edgeInsideの逆
-                    let p = [v0, v1, v2];
-                    const outside = [];
-                    for (let i = 0; i < p.length; i++) {
-                        const cur = p[i], prv = p[(i+p.length-1)%p.length];
-                        const curOut = !edgeInside(A, B, cur);
-                        const prvOut = !edgeInside(A, B, prv);
-                        if (curOut) {
-                            if (!prvOut) {
-                                const t_num = (A.y-prv.y)*(B.x-A.x) - (A.x-prv.x)*(B.y-A.y);
-                                const t_den = (cur.x-prv.x)*(B.y-A.y) - (cur.y-prv.y)*(B.x-A.x);
-                                const t = Math.abs(t_den) < 1e-10 ? 0 : t_num / t_den;
-                                outside.push(lerpVL(prv, cur, t));
-                            }
-                            outside.push(cur);
-                        } else if (prvOut) {
-                            const t_num = (A.y-prv.y)*(B.x-A.x) - (A.x-prv.x)*(B.y-A.y);
-                            const t_den = (cur.x-prv.x)*(B.y-A.y) - (cur.y-prv.y)*(B.x-A.x);
-                            const t = Math.abs(t_den) < 1e-10 ? 0 : t_num / t_den;
-                            outside.push(lerpVL(prv, cur, t));
-                        }
-                    }
-                    if (outside.length >= 3) results.push(outside);
-                }
-                return results;
-            }
-
-            function edgesAllInside(v) {
-                const n = lassoNDC.length;
-                for (let ei = 0; ei < n; ei++) {
-                    if (!edgeInside(lassoNDC[ei], lassoNDC[(ei+1)%n], v)) return false;
-                }
-                return true;
-            }
-
-            function fanTriangulateL(poly) {
-                const tris = [];
-                for (let i = 1; i + 1 < poly.length; i++) tris.push(poly[0], poly[i], poly[i+1]);
-                return tris;
-            }
-
-            // ── 消去実行 ──
+            // ── 消去実行（重心判定方式）──
             pushHistory();
             let changed = false;
 
-            modelGroup.updateMatrixWorld(true);
             targetMeshes.forEach(m => {
                 const p = m.geometry.attributes.position;
                 const mat = m.matrixWorld;
-                const matInv = mat.clone().invert();
-
-                const newVerts = [];
-
-                for (let i = 0; i + 2 < p.count; i += 3) {
+                for (let i = 0; i < p.count; i += 3) {
                     if (isNaN(p.getX(i))) continue;
+                    const cx = (p.getX(i) + p.getX(i+1) + p.getX(i+2)) / 3;
+                    const cy = (p.getY(i) + p.getY(i+1) + p.getY(i+2)) / 3;
+                    const cz = (p.getZ(i) + p.getZ(i+1) + p.getZ(i+2)) / 3;
+                    const v = new THREE.Vector3(cx, cy, cz).applyMatrix4(mat).project(camera);
+                    const _rect = renderer.domElement.getBoundingClientRect();
+                    const sx = (v.x + 1) / 2 * _rect.width  + _rect.left;
+                    const sy = (-v.y + 1) / 2 * _rect.height + _rect.top;
 
-                    // ワールド座標 + NDC取得
-                    const wv = [0,1,2].map(j => {
-                        const wPos = new THREE.Vector3().fromBufferAttribute(p, i+j).applyMatrix4(mat);
-                        const ndc  = wPos.clone().project(camera);
-                        return { x: ndc.x, y: ndc.y, wx: wPos.x, wy: wPos.y, wz: wPos.z };
-                    });
-
-                    const remaining = clipTriangleOutsideLasso(wv[0], wv[1], wv[2]);
-
-                    if (remaining.length === 0) {
+                    if (!pointInLasso(sx, sy, lassoPoints)) {
+                        for (let j = 0; j < 3; j++) p.setXYZ(i + j, NaN, NaN, NaN);
                         changed = true;
-                    } else {
-                        for (const poly of remaining) {
-                            const tris = fanTriangulateL(poly);
-                            for (const v of tris) {
-                                const local = new THREE.Vector3(v.wx, v.wy, v.wz).applyMatrix4(matInv);
-                                newVerts.push(local.x, local.y, local.z);
-                            }
-                        }
-                        if (remaining.length !== 1 || remaining[0].length !== 3) changed = true;
                     }
                 }
-
-                const newGeo = new THREE.BufferGeometry();
-                newGeo.setAttribute('position', new THREE.Float32BufferAttribute(newVerts, 3));
-                newGeo.computeVertexNormals();
-                newGeo.computeBoundingBox();
-                newGeo.computeBoundingSphere();
-                m.geometry.dispose();
-                m.geometry = newGeo;
+                p.needsUpdate = true;
+                m.geometry.computeBoundingBox();
+                m.geometry.computeBoundingSphere();
             });
 
             if (changed) {
-                // 切断面にsealHolesで蓋を焼き込む
-                modelGroup.updateMatrixWorld(true);
-                try {
-                    targetMeshes.forEach(m => {
-                        const pos = m.geometry.attributes.position;
-                        const mat = m.matrixWorld;
-                        const matInv = mat.clone().invert();
-                        const verts = [];
-                        for (let i = 0; i + 2 < pos.count; i += 3) {
-                            const v1w = new THREE.Vector3().fromBufferAttribute(pos, i  ).applyMatrix4(mat);
-                            const v2w = new THREE.Vector3().fromBufferAttribute(pos, i+1).applyMatrix4(mat);
-                            const v3w = new THREE.Vector3().fromBufferAttribute(pos, i+2).applyMatrix4(mat);
-                            if (isNaN(v1w.x)||isNaN(v2w.x)||isNaN(v3w.x)) continue;
-                            verts.push(v1w.x,v1w.y,v1w.z, v2w.x,v2w.y,v2w.z, v3w.x,v3w.y,v3w.z);
-                        }
-                        if (verts.length === 0) return;
-                        const wg = new THREE.BufferGeometry();
-                        wg.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
-                        const sealedW = sealHoles(wg, true);
-                        const sp = sealedW.attributes.position;
-                        const localVerts = [];
-                        for (let i = 0; i < sp.count; i++) {
-                            const lv = new THREE.Vector3().fromBufferAttribute(sp, i).applyMatrix4(matInv);
-                            localVerts.push(lv.x, lv.y, lv.z);
-                        }
-                        const sealedLocal = new THREE.BufferGeometry();
-                        sealedLocal.setAttribute('position', new THREE.Float32BufferAttribute(localVerts, 3));
-                        sealedLocal.computeVertexNormals();
-                        sealedLocal.computeBoundingBox();
-                        sealedLocal.computeBoundingSphere();
-                        m.geometry.dispose();
-                        m.geometry = sealedLocal;
-                    });
-                } catch(e) { console.warn('lasso sealHoles failed:', e); }
-
                 clearWireframe();
                 document.getElementById('result').textContent = '---';
                 updateVertCount();
@@ -3087,14 +2871,12 @@
                 toast('消去対象が見つからなかったわ', true);
             }
 
-            // 消去完了→自動でモード終了
             if (changed) {
                 setTimeout(() => {
                     autoResetRollKeepCamera();
                     setMode('none');
                 }, 0);
             } else {
-                // 消去対象なし→描き直せるよう継続
                 clearLasso();
                 const lc = document.getElementById('lasso-canvas');
                 sizeLassoCanvas();
