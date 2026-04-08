@@ -21,7 +21,7 @@
 
   【バージョンルール】
     指示がない限り、軽微な更新でも毎回バージョンを 1 つ上げること。
-    例: v1.206 → v1.1404
+    例: v1.206 → v1.1405
 
   【Claude への引き継ぎメモ】
     ─ LiDARメッシュ全般 ─
@@ -42,7 +42,7 @@
     - 体積 = Σ(セル面積 × (最大Y - 地盤Y))
     - 穴あき・非閉メッシュ・頂部欠損に強い。平地前提。
 
-    ─ UI構成（v1.1404時点） ─
+    ─ UI構成（v1.1405時点） ─
     - スマホ（max-width:430px）: 上半分=canvas、下半分=#ui（スクロール可）
       overscroll-behavior:contain でiPhone慣性スクロールの上位伝播を防止済み
     - タブレット/PC（max-width:768px超）: 左パネル=#ui、右上=#view-panel
@@ -92,7 +92,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>VolChe - Volume Checker v1.1404</title>
+    <title>VolChe - Volume Checker v1.1405</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -533,6 +533,16 @@
             pointer-events: none;
             cursor: not-allowed;
         }
+        /* 2番: ファイル未ロード時はVIEW-UIも無効化 */
+        body.no-file #view-panel {
+            pointer-events: none;
+            opacity: 0.35;
+        }
+        /* 1番: lasso/area/singleモード中はVIEW-UIを無効化 */
+        body.mode-select #view-panel {
+            pointer-events: none;
+            opacity: 0.5;
+        }
 
 
         /* ── OSAKI LOGO ── */
@@ -701,6 +711,25 @@
 
 
         /* ══════════════════════════════════════════════
+           iPad縦持ち専用レイアウト
+           max-width:1024px かつ orientation:portrait かつ pointer:coarse
+           canvasを全画面に、パネルをオーバーレイに
+        ══════════════════════════════════════════════ */
+        @media (max-width: 1024px) and (orientation: portrait) and (pointer: coarse) {
+            body {
+                overflow: hidden !important;
+            }
+            /* canvasを全画面表示 */
+            body > canvas:not(#lasso-canvas) {
+                position: fixed !important;
+                top: 0 !important; left: 0 !important;
+                width: 100% !important;
+                height: 100dvh !important;
+            }
+            /* #uiはハンバーガー経由のオーバーレイのまま（768px以下のCSSが適用） */
+        }
+
+        /* ══════════════════════════════════════════════
            スマホ専用レイアウト（iPhone縦持ち限定）
            max-width:430px かつ pointer:coarse で限定
            iPad・PC は完全無影響
@@ -826,6 +855,14 @@
             /* ロゴはスマホ時非表示 */
             #osaki-logo { display: none !important; }
 
+            /* 4番: iPhoneのEdit再表示ボタンは右下に */
+            #ui-show-btn {
+                top: auto !important;
+                left: auto !important;
+                bottom: 20px !important;
+                right: 12px !important;
+            }
+
             /* select-box・lasso-canvasはfixedのまま（動作に影響なし） */
 
             /* ダブルタップズーム防止 */
@@ -873,7 +910,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.1404</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.1405</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB / OBJ ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:10px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -930,7 +967,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.1404</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.1405</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
