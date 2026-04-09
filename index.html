@@ -21,7 +21,7 @@
 
   【バージョンルール】
     指示がない限り、軽微な更新でも毎回バージョンを 1 つ上げること。
-    例: v1.206 → v1.1406
+    例: v1.206 → v1.1407
 
   【Claude への引き継ぎメモ】
     ─ LiDARメッシュ全般 ─
@@ -42,7 +42,7 @@
     - 体積 = Σ(セル面積 × (最大Y - 地盤Y))
     - 穴あき・非閉メッシュ・頂部欠損に強い。平地前提。
 
-    ─ UI構成（v1.1406時点） ─
+    ─ UI構成（v1.1407時点） ─
     - スマホ（max-width:430px）: 上半分=canvas、下半分=#ui（スクロール可）
       overscroll-behavior:contain でiPhone慣性スクロールの上位伝播を防止済み
     - タブレット/PC（max-width:768px超）: 左パネル=#ui、右上=#view-panel
@@ -92,7 +92,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>VolChe - Volume Checker v1.1406</title>
+    <title>VolChe - Volume Checker v1.1407</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -499,21 +499,23 @@
 
         #mode-badge .cancel-hint {
             display: inline-block;
-            font-size: 13px;
+            font-size: 12px;
             color: #000;
             background: var(--accent2);
             border: none;
             border-radius: 12px;
-            padding: 5px 16px;
-            letter-spacing: 0.04em;
-            white-space: nowrap;
+            padding: 5px 14px;
+            letter-spacing: 0.02em;
+            white-space: pre-line;
+            line-height: 1.3;
+            text-align: center;
             font-weight: 700;
             cursor: pointer;
             font-family: var(--mono);
             -webkit-tap-highlight-color: rgba(0,200,255,0.3);
             touch-action: manipulation;
             min-height: 36px;
-            min-width: 60px;
+            min-width: 90px;
         }
 
         /* ── SUB MENU z-index（iPadでボタンが押せない問題対策） ── */
@@ -711,22 +713,136 @@
 
 
         /* ══════════════════════════════════════════════
-           iPad縦持ち専用レイアウト
+           iPad縦持ち専用レイアウト（CSS Grid 60/40）
            max-width:1024px かつ orientation:portrait かつ pointer:coarse
-           canvasを全画面に、パネルをオーバーレイに
+           min-width:431px でiPhoneと分離
         ══════════════════════════════════════════════ */
-        @media (max-width: 1024px) and (orientation: portrait) and (pointer: coarse) {
+        @media (min-width: 431px) and (max-width: 1024px) and (orientation: portrait) and (pointer: coarse) {
+
             body {
+                display: grid !important;
+                grid-template-rows: 60dvh 40dvh !important;
+                grid-template-columns: 1fr 200px !important;
+                grid-template-areas:
+                    "canvas canvas"
+                    "edit   view " !important;
+                height: 100dvh !important;
                 overflow: hidden !important;
             }
-            /* canvasを全画面表示 */
+
+            /* canvasエリア */
             body > canvas:not(#lasso-canvas) {
-                position: fixed !important;
-                top: 0 !important; left: 0 !important;
+                grid-area: canvas !important;
+                position: relative !important;
+                top: auto !important; left: auto !important;
                 width: 100% !important;
-                height: 100dvh !important;
+                height: 100% !important;
             }
-            /* #uiはハンバーガー経由のオーバーレイのまま（768px以下のCSSが適用） */
+
+            #lasso-canvas {
+                position: fixed !important;
+                grid-area: unset !important;
+            }
+
+            /* select-boxやdrop-overlayなどのfixed要素はgridに影響しない */
+            #select-box, #drop-overlay, #mode-badge, #toast,
+            #osaki-logo, #ui-show-btn, #view-show-btn,
+            #panel-overlay {
+                grid-area: unset !important;
+            }
+
+            /* Editパネル */
+            #ui {
+                grid-area: edit !important;
+                position: relative !important;
+                top: auto !important; left: auto !important;
+                width: 100% !important;
+                height: 100% !important;
+                overflow-y: auto !important;
+                -webkit-overflow-scrolling: touch !important;
+                overscroll-behavior: contain !important;
+                border-radius: 0 !important;
+                border-right: 1px solid var(--border-bright) !important;
+                border-top: 2px solid var(--border-bright) !important;
+                border-left: none !important;
+                border-bottom: none !important;
+                transform: none !important;
+                transition: none !important;
+            }
+
+            /* Viewパネル */
+            #view-panel {
+                grid-area: view !important;
+                position: relative !important;
+                top: auto !important; right: auto !important;
+                width: 100% !important;
+                height: 100% !important;
+                overflow-y: auto !important;
+                transform: none !important;
+                transition: none !important;
+                padding: 8px !important;
+                border-top: 2px solid var(--border-bright) !important;
+                border-left: 1px solid var(--border) !important;
+            }
+
+            /* view-panelは常に展開 */
+            #view-panel-toggle { display: none !important; }
+            #view-panel-body   { display: block !important; }
+
+            /* ハンバーガー不要 */
+            .hamburger-btn { display: none !important; }
+            #panel-overlay { display: none !important; }
+
+            /* ボタンサイズ */
+            #ui .btn { min-height: 40px !important; font-size: 13px !important; }
+            #ui .btn-accent { min-height: unset !important; }
+            #view-panel .btn {
+                font-size: 12px !important;
+                padding: 5px 4px !important;
+                min-height: 34px !important;
+            }
+
+            /* mode-badge */
+            #mode-badge {
+                top: 4px !important;
+                font-size: 11px !important;
+                max-width: 60% !important;
+            }
+
+            /* toast */
+            #toast {
+                bottom: calc(40dvh + 4px) !important;
+                top: auto !important;
+            }
+
+            /* drop-overlay: canvas上部のみ */
+            #drop-overlay {
+                position: fixed !important;
+                top: 0 !important; left: 0 !important; right: 0 !important;
+                bottom: auto !important;
+                height: 60dvh !important;
+                width: 100% !important;
+                inset: auto !important;
+            }
+
+            /* ロゴ */
+            #osaki-logo {
+                bottom: calc(40dvh + 4px) !important;
+                right: 8px !important;
+                width: 60px !important;
+            }
+
+            /* ui-show-btn不要（常時表示） */
+            #ui-show-btn { display: none !important; }
+
+            /* ダブルタップズーム防止 */
+            body, canvas, #ui, #view-panel {
+                touch-action: manipulation !important;
+            }
+
+            /* result/体積フォント調整 */
+            #result { font-size: 15px !important; }
+            .result-label { font-size: 10px !important; }
         }
 
         /* ══════════════════════════════════════════════
@@ -881,6 +997,8 @@
             /* result-boxはスマホで幅が狭いのでフォントを縮小 */
             #result { font-size: 15px !important; }
             .result-label { font-size: 10px !important; letter-spacing: 0.05em !important; }
+            /* 修正11: EditのみBtn-gridを3列化（ViewのBtn-gridは対象外） */
+            #ui .btn-grid { grid-template-columns: 1fr 1fr 1fr !important; }
 
             /* drop-box縮小 */
             .drop-box { padding: 16px 24px !important; }
@@ -910,7 +1028,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.1406</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.1407</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB / OBJ ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:10px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -967,7 +1085,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.1406</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.1407</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
@@ -1008,7 +1126,7 @@
                 <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; padding:6px 8px; background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:3px;">
                     <span style="font-size:11px; color:var(--text-dim); font-family:var(--mono); flex:1;">自動閉鎖モード</span>
                     <label style="position:relative; display:inline-block; width:36px; height:20px; cursor:pointer;">
-                        <input type="checkbox" id="areaAutoSeal" checked style="opacity:0; width:0; height:0;">
+                        <input type="checkbox" id="areaAutoSeal" style="opacity:0; width:0; height:0;">
                         <span id="areaAutoSealKnob" style="position:absolute; inset:0; background:#444; border-radius:10px; transition:0.2s;">
                             <span style="position:absolute; width:14px; height:14px; background:#fff; border-radius:50%; top:3px; left:3px; transition:0.2s;" id="areaAutoSealDot"></span>
                         </span>
@@ -1017,7 +1135,15 @@
                 <div id="area-ui-desc-on" style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:8px; line-height:1.6;">矩形状に指定した範囲を消去するモードです。消去した面は近接点を自動で結び閉鎖しますが、細かい部分の面がおかしくなる場合があるので気を付けてください。</div>
                 <div id="area-ui-desc-off" style="display:none; font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:8px; line-height:1.6;">矩形状に指定した範囲を消去するモードです。</div>
                 <!-- 連続モード表示 -->
-                <div id="area-mode-indicator" style="font-size:11px; font-family:var(--mono); margin-bottom:6px; padding:4px 8px; border-radius:3px; background:rgba(57,255,143,0.07); border:1px solid var(--border); color:var(--text-dim);">1回押し：1回消去モード</div>
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; padding:6px 8px; background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:3px;">
+                    <span style="font-size:11px; color:var(--text-dim); font-family:var(--mono); flex:1;">連続消去モード</span>
+                    <label style="position:relative; display:inline-block; width:36px; height:20px; cursor:pointer;">
+                        <input type="checkbox" id="areaLoopToggle" style="opacity:0; width:0; height:0;">
+                        <span id="areaLoopKnob" style="position:absolute; inset:0; background:#444; border-radius:10px; transition:0.2s;">
+                            <span style="position:absolute; width:14px; height:14px; background:#fff; border-radius:50%; top:3px; left:3px; transition:0.2s;" id="areaLoopDot"></span>
+                        </span>
+                    </label>
+                </div>
             </div>
 
             <!-- 個別指定消去 -->
@@ -1098,15 +1224,16 @@
 
     <!-- VIEW PANEL (右上フロート) -->
     <div id="view-panel">
-        <!-- スマホ用トグルヘッダー -->
-        <div id="view-panel-toggle" style="display:none; cursor:pointer; font-family:var(--mono); font-size:11px; color:var(--accent); letter-spacing:0.15em; padding:2px 0 6px; user-select:none;">
-            VIEW <span id="view-panel-arrow">▼</span>
-        </div>
-        <div id="view-panel-body">
-        <div class="section-label" style="display:flex; align-items:center;">
-            <span style="flex:1; letter-spacing:0.2em;">View</span>
+        <!-- ヘッダー行: VIEWラベル + OFFボタン -->
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+            <div id="view-panel-toggle" style="display:none; cursor:pointer; font-family:var(--mono); font-size:11px; color:var(--accent); letter-spacing:0.15em; user-select:none;">
+                VIEW <span id="view-panel-arrow">▼</span>
+            </div>
+            <div id="view-panel-label" style="font-family:var(--mono); font-size:11px; color:var(--text-dim); letter-spacing:0.2em;">VIEW</div>
             <button id="view-hide-btn" title="ViewUIを隠す" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:10px; font-family:var(--mono); cursor:pointer; padding:2px 6px; line-height:1; touch-action:manipulation;">OFF</button>
         </div>
+        <div id="view-panel-body">
+        <!-- OFFボタンはヘッダー行に移動済み -->
         <div class="btn-grid">
             <button class="btn" id="view-top">Top</button>
             <button class="btn" id="view-front">Front</button>
@@ -1126,8 +1253,8 @@
             style="margin-top:8px; font-size:13px; border-color:rgba(255,200,0,0.4); color:#ffd700;">ObjectColor</button>
         <!-- 5番: 陰影スライダー -->
         <div style="margin-top:6px; padding:0 2px;">
-            <div style="font-size:10px; color:var(--text-dim); font-family:var(--mono); margin-bottom:3px;">陰影強度</div>
-            <input type="range" id="shadowSlider" min="30" max="70" value="50" style="width:100%; -webkit-appearance:none; height:4px; background:linear-gradient(90deg,var(--accent) 50%,#222 50%); border-radius:2px; cursor:pointer;">
+            <div id="shadow-slider-label" style="font-size:10px; color:var(--text-dim); font-family:var(--mono); margin-bottom:3px;">陰影強度</div>
+            <input type="range" id="shadowSlider" min="20" max="80" value="50" style="width:100%; -webkit-appearance:none; height:4px; background:linear-gradient(90deg,var(--accent) 50%,#222 50%); border-radius:2px; cursor:pointer;">
         </div>
         <button class="btn" id="measureBtn"
             style="margin-top:6px; font-size:13px; border-color:rgba(255,107,43,0.4); color:var(--warn);">📏 距離測定(rescale)</button>
@@ -2385,18 +2512,18 @@
                     const y0=groundY, y1=yTop;
                     const z0=minZ+iz*voxelSize, z1=z0+voxelSize;
 
-                    // 上面
-                    currentChunk.push(x0,y1,z0, x1,y1,z0, x1,y1,z1, x0,y1,z0, x1,y1,z1, x0,y1,z1);
-                    // 下面
-                    currentChunk.push(x0,y0,z1, x1,y0,z1, x1,y0,z0, x0,y0,z1, x1,y0,z0, x0,y0,z0);
-                    // 前面z1
-                    currentChunk.push(x0,y0,z1, x0,y1,z1, x1,y1,z1, x0,y0,z1, x1,y1,z1, x1,y0,z1);
-                    // 後面z0
-                    currentChunk.push(x1,y0,z0, x1,y1,z0, x0,y1,z0, x1,y0,z0, x0,y1,z0, x0,y0,z0);
-                    // 右面x1
-                    currentChunk.push(x1,y0,z1, x1,y1,z1, x1,y1,z0, x1,y0,z1, x1,y1,z0, x1,y0,z0);
-                    // 左面x0
-                    currentChunk.push(x0,y0,z0, x0,y1,z0, x0,y1,z1, x0,y0,z0, x0,y1,z1, x0,y0,z1);
+                    // 上面（法線反転済み）
+                    currentChunk.push(x0,y1,z0, x1,y1,z1, x0,y1,z1,  x0,y1,z0, x1,y1,z0, x1,y1,z1);
+                    // 下面（法線反転済み）
+                    currentChunk.push(x0,y0,z1, x1,y0,z0, x1,y0,z1,  x0,y0,z1, x0,y0,z0, x1,y0,z0);
+                    // 前面z1（法線反転済み）
+                    currentChunk.push(x0,y0,z1, x1,y1,z1, x0,y1,z1,  x0,y0,z1, x1,y0,z1, x1,y1,z1);
+                    // 後面z0（法線反転済み）
+                    currentChunk.push(x1,y0,z0, x0,y1,z0, x1,y1,z0,  x1,y0,z0, x0,y0,z0, x0,y1,z0);
+                    // 右面x1（法線反転済み）
+                    currentChunk.push(x1,y0,z1, x1,y1,z0, x1,y1,z1,  x1,y0,z1, x1,y0,z0, x1,y1,z0);
+                    // 左面x0（法線反転済み）
+                    currentChunk.push(x0,y0,z0, x0,y1,z1, x0,y1,z0,  x0,y0,z0, x0,y0,z1, x0,y1,z1);
 
                     chunkVoxelCount++;
                     if (chunkVoxelCount >= MAX_VOXELS_PER_CHUNK) {
@@ -3023,9 +3150,6 @@
                 mainMenu.style.display = 'none';
                 subMenu.style.display  = 'block';
                 document.getElementById('area-ui').style.display = 'block';
-                // 1番: モードインジケータ更新
-                const ind = document.getElementById('area-mode-indicator');
-                if (ind) ind.textContent = mode === 'area-loop' ? '2回押し：連続消去モード（解除まで継続）' : '1回押し：1回消去モード';
             } else {
                 mainMenu.style.display = 'none';
                 subMenu.style.display  = 'block';
@@ -3066,28 +3190,30 @@
                 if (belowHighlightMesh) { scene.remove(belowHighlightMesh); belowHighlightMesh = null; }
             }
 
-            // ── モードバッジ（1行コンパクト）──
-            const _cancelBtn = '<button class="cancel-hint" id="badge-cancel-btn">✕ 解除</button>';
+            // ── モードバッジ（2行ボタン方式）──
+            function _makeCancelBtn(line1, line2) {
+                return `<button class="cancel-hint" id="badge-cancel-btn" style="white-space:pre-line; line-height:1.3; min-width:90px;">${line1}\n${line2}</button>`;
+            }
             if (mode === 'single') {
-                modeBadge.innerHTML = '⊘ 個別消去モード ' + _cancelBtn;
+                modeBadge.innerHTML = _makeCancelBtn('個別消去', '解除');
                 modeBadge.classList.add('active'); setStatus('MODE: SINGLE DEL');
             } else if (mode === 'area') {
-                modeBadge.innerHTML = '▣ 矩形消去（1回） ' + _cancelBtn;
+                modeBadge.innerHTML = _makeCancelBtn('矩形範囲消去', '（１回）解除');
                 modeBadge.classList.add('active'); setStatus('MODE: AREA DEL');
             } else if (mode === 'area-loop') {
-                modeBadge.innerHTML = '▣ 矩形消去（連続） ' + _cancelBtn;
+                modeBadge.innerHTML = _makeCancelBtn('矩形範囲消去', '（連続）解除');
                 modeBadge.classList.add('active'); setStatus('MODE: AREA LOOP');
             } else if (mode === 'lasso') {
-                modeBadge.innerHTML = '✏ 範囲外消去 ― 指でなぞる ' + _cancelBtn;
+                modeBadge.innerHTML = _makeCancelBtn('範囲外消去', '指でなぞる');
                 modeBadge.classList.add('active'); setStatus('MODE: LASSO DEL');
             } else if (mode === 'measure') {
-                modeBadge.innerHTML = '📏 距離測定 ― 2点タップ ' + _cancelBtn;
+                modeBadge.innerHTML = _makeCancelBtn('距離測定', '2点タップ');
                 modeBadge.classList.add('active'); setStatus('MODE: MEASURE');
             } else if (mode === 'cutter') {
-                modeBadge.innerHTML = '✂ 地盤面カット ' + _cancelBtn;
+                modeBadge.innerHTML = _makeCancelBtn('地盤面カット', '解除');
                 modeBadge.classList.add('active'); setStatus('MODE: CUTTER');
             } else if (mode === 'voxelize') {
-                modeBadge.innerHTML = '🧱 ボクセル化 <button class="cancel-hint" id="badge-cancel-btn">✕ 解除</button>';
+                modeBadge.innerHTML = _makeCancelBtn('ボクセル化', '解除');
                 modeBadge.classList.add('active'); setStatus('VOXELIZING...');
             } else {
                 modeBadge.classList.remove('active'); setStatus('READY');
@@ -3568,6 +3694,9 @@ if (changed) {
         function setObjectColor(state) {
             objectColorState = state;
             const btn = document.getElementById('heatmapBtn');
+            const sliderLabel = document.getElementById('shadow-slider-label');
+            const slider = document.getElementById('shadowSlider');
+
             if (state === 0) {
                 // 元に戻す
                 if (heatmapActive) setHeatmap(false);
@@ -3577,16 +3706,29 @@ if (changed) {
                         m.material = _origMaterials.get(m.uuid);
                         _origMaterials.delete(m.uuid);
                     }
+                    // opacity戻し
+                    if (m.material) { m.material.transparent = false; m.material.opacity = 1.0; m.material.needsUpdate = true; }
                 });
                 btn.textContent = 'ObjectColor';
                 btn.style.background = '';
                 btn.style.borderColor = 'rgba(255,200,0,0.4)';
                 btn.style.color = '#ffd700';
                 heatmapActive = false;
+                // スライダーを陰影モードに戻す
+                if (sliderLabel) sliderLabel.textContent = '陰影強度';
+                if (slider) {
+                    slider.min = 20; slider.max = 80; slider.value = 50;
+                    slider.oninput = () => applyShadowIntensity(parseInt(slider.value));
+                    applyShadowIntensity(50);
+                }
             } else if (state === 1) {
                 // クリーム色
                 if (heatmapActive) setHeatmap(false);
                 if (targetMeshes.length === 0) { toast('先にファイルを読み込んでね', true); objectColorState = 0; return; }
+                // opacity戻し
+                targetMeshes.forEach(m => {
+                    if (m.material) { m.material.transparent = false; m.material.opacity = 1.0; m.material.needsUpdate = true; }
+                });
                 targetMeshes.forEach(m => {
                     if (!_origMaterials.has(m.uuid)) _origMaterials.set(m.uuid, m.material);
                     m.material = _creamMat();
@@ -3595,10 +3737,16 @@ if (changed) {
                 btn.style.background = 'rgba(255,245,220,0.12)';
                 btn.style.borderColor = '#ffd700';
                 btn.style.color = '#ffd700';
+                // スライダーを陰影モードに戻す
+                if (sliderLabel) sliderLabel.textContent = '陰影強度';
+                if (slider) {
+                    slider.min = 20; slider.max = 80; slider.value = 50;
+                    slider.oninput = () => applyShadowIntensity(parseInt(slider.value));
+                    applyShadowIntensity(50);
+                }
             } else if (state === 2) {
                 // ヒートマップ
                 if (targetMeshes.length === 0) { toast('先にファイルを読み込んでね', true); objectColorState = 0; return; }
-                // クリーム色のmat解除してからheatmap適用
                 targetMeshes.forEach(m => {
                     if (_origMaterials.has(m.uuid)) {
                         if (m.material && m.material.dispose) m.material.dispose();
@@ -3611,21 +3759,43 @@ if (changed) {
                 btn.style.background = 'rgba(255,107,43,0.15)';
                 btn.style.borderColor = '#ff6b2b';
                 btn.style.color = '#ff9966';
+                // 修正5: スライダーを透明度モードに切替
+                if (sliderLabel) sliderLabel.textContent = '透明度';
+                if (slider) {
+                    slider.min = 0; slider.max = 50; slider.value = 0;
+                    slider.style.background = 'linear-gradient(90deg, var(--accent) 0%, #222 0%)';
+                    slider.oninput = () => {
+                        const opacity = 1.0 - parseInt(slider.value) / 100;
+                        targetMeshes.forEach(m => {
+                            if (m.material && m.material.isShaderMaterial) {
+                                m.material.transparent = opacity < 1.0;
+                                m.material.opacity = opacity;
+                                m.material.needsUpdate = true;
+                            }
+                        });
+                        const pct = Math.round((parseInt(slider.value) / 50) * 100);
+                        slider.style.background = `linear-gradient(90deg, var(--accent) ${pct}%, #222 ${pct}%)`;
+                    };
+                }
             }
         }
         document.getElementById('heatmapBtn').onclick = () => {
             setObjectColor((objectColorState + 1) % 3);
         };
 
-        // ── 5番: 陰影スライダー ──
+        // ── 陰影スライダー ──
         const shadowSlider = document.getElementById('shadowSlider');
         function applyShadowIntensity(val) {
-            // val: 30-70、50が標準。ambientとdirLightの比率を調整
-            const t = (val - 30) / 40; // 0=暗い, 1=明るい
+            const t = (val - 20) / 60; // 0=暗い, 1=明るい（範囲20-80）
             scene.children.forEach(c => {
-                if (c.isAmbientLight)     c.intensity = 0.8 + t * 1.4;  // 0.8〜2.2
-                if (c.isDirectionalLight) c.intensity = 0.6 + t * 1.2;  // 0.6〜1.8
+                if (c.isAmbientLight)     c.intensity = 0.8 + t * 1.4;
+                if (c.isDirectionalLight) c.intensity = 0.6 + t * 1.2;
             });
+            // 修正1: fillを動的更新
+            if (shadowSlider) {
+                const pct = Math.round(((val - shadowSlider.min) / (shadowSlider.max - shadowSlider.min)) * 100);
+                shadowSlider.style.background = `linear-gradient(90deg, var(--accent) ${pct}%, #222 ${pct}%)`;
+            }
         }
         if (shadowSlider) {
             shadowSlider.oninput = () => applyShadowIntensity(parseInt(shadowSlider.value));
@@ -3635,14 +3805,32 @@ if (changed) {
         // ── 1番: areaDel 1回/2回押しで1回消去/連続消去切替 ──
         document.getElementById('singleDel').onclick = () => setMode(mode === 'single' ? 'none' : 'single');
         document.getElementById('areaDel').onclick = () => {
-            if (mode === 'none' || (mode !== 'area' && mode !== 'area-loop')) {
-                setMode('area');       // 初回：1回消去モード
-            } else if (mode === 'area') {
-                setMode('area-loop'); // 2回目：連続消去モード
+            if (mode === 'area' || mode === 'area-loop') {
+                setMode('none');
             } else {
-                setMode('none');      // 解除
+                const loopOn = document.getElementById('areaLoopToggle')?.checked;
+                setMode(loopOn ? 'area-loop' : 'area');
             }
         };
+
+        // 連続消去トグルUIの更新
+        function updateLoopToggleUI() {
+            const on = document.getElementById('areaLoopToggle')?.checked;
+            const knob = document.getElementById('areaLoopKnob');
+            const dot  = document.getElementById('areaLoopDot');
+            if (knob) knob.style.background = on ? 'var(--accent2)' : '#444';
+            if (dot)  dot.style.left = on ? '19px' : '3px';
+        }
+        const areaLoopToggle = document.getElementById('areaLoopToggle');
+        if (areaLoopToggle) {
+            areaLoopToggle.addEventListener('change', () => {
+                updateLoopToggleUI();
+                if (mode === 'area' || mode === 'area-loop') {
+                    setMode(areaLoopToggle.checked ? 'area-loop' : 'area');
+                }
+            });
+            updateLoopToggleUI();
+        }
 
         // ── 2/3番: 自動閉鎖トグルスイッチ ──
         const areaAutoSeal = document.getElementById('areaAutoSeal');
