@@ -4,80 +4,97 @@
 ================================================================================
   【このアプリの使用目的】
     工事現場の残土の山などを iPad Pro の LiDAR で取得し、
-    FBX 形式で書き出して体積を計算するためのツール。
-
-  【想定ワークフロー】
-    1. iPad Pro の LiDAR スキャナで現場（土山・残土など）を撮影
-    2. FBX 形式でエクスポート
-    3. このアプリ（VolChe）に FBX / GLB をドラッグ＆ドロップ
-    4. 必要に応じて「地盤面設定（下部カット）」で地盤面を除去
-    5. 「体積計算」ボタンで体積を取得（m³）
-
-  【補足】
-    - GLB 形式での読み書きも対応（PowerPoint / Web での表示に便利）
-    - ボクセル化機能あり（大規模メッシュを穴なしブロックに変換・体積直接取得）
-    - 単体 HTML ファイルで動作、サーバー不要
-    - 用途は積算（ダンプ台数・残土処分費）なので数%の誤差は許容範囲
+    FBX / GLB / OBJ 形式で体積を計算するためのツール。
 
   【バージョンルール】
     指示がない限り、軽微な更新でも毎回バージョンを 1 つ上げること。
-    例: v1.206 → v1.1407
+    例: v1.1409 → v1.1409
 
   【Claude への引き継ぎメモ】
-    ─ LiDARメッシュ全般 ─
-    - LiDAR メッシュは穴あき・非多様体が多い点に注意
-    - sealHoles はファン三角形方式のため大きな開口部で誤差が出やすい
-    - カット体積の誤差（球体半分で約5%）は許容範囲と判断済み
 
-    ─ ボクセル化（v1.319～） ─
-    - 高さマップ（2.5D）方式
-      XZグリッドの各セルで最大Y頂点を取得→地盤面（Y下位5%中央値）との差を積算
-    - sealHolesはボクセル化計算から完全切り離し済み（v1.212～）
-    - BFS外側判定を廃止、スキャンライン内側判定に移行（v1.319～）
-      BFSは球面メッシュのギャップから外側が内側に「漏れる」バグがあった。
-      代替：行・列それぞれの有効セル両端範囲で内側を特定するスキャンライン方式。
-      外側 -Infinity セル → 生成ループでskip → 幽霊ボクセル根絶。
-      内側 -Infinity セル → 最大50パス平均補完 → 頂上穴を正確に埋める。
-    - グリッドサイズ: 2〜30cm 固定
-    - 体積 = Σ(セル面積 × (最大Y - 地盤Y))
-    - 穴あき・非閉メッシュ・頂部欠損に強い。平地前提。
+  ─ デバイス別レイアウト ─
+  - iPhone（max-width:430px, pointer:coarse）
+      上50%=canvas、下50%=#ui（スクロール可）
+      #view-panelはcanvas右上に折りたたみ式（▼トグルのみ、OFFボタンは非表示）
+      Edit再表示ボタンは右下「Edit」
+      btn-gridは3列（#ui .btn-grid { grid-template-columns:1fr 1fr 1fr }）
+      status-barは非表示、頂点・ポリゴン数はFILE行の#vert-count-inlineに横並び表示
+      モード中はOFFボタン（ui-hide-btn）を非表示（_updateUiHideBtnVisibility）
+  - iPad縦持ち（min-width:431px, max-width:1024px, orientation:portrait, pointer:coarse）
+      CSS Grid: 上60dvh=canvas、下40dvh=Edit(左)+View(右200px)
+      grid-template-areas: "canvas canvas" / "edit view"
+      パネルは常時表示（ハンバーガー不要）
+      lasso-canvasはposition:fixed除外
+      OFFボタンでbody.ipad-ui-hiddenを付与→gridを解放しcanvas全画面化
+      復帰は#ipad-ui-show-btn（下部固定）
+      view-panelのbackgroundはvar(--panel)に統一（修正13）
+      ロゴは左上（top:60dvh+4px, left:8px）に配置（修正14）
+  - PC/iPad横（それ以外）
+      左パネル=#ui（270px固定）、右上=#view-panel（210px幅）
+      ハンバーガーボタン（max-width:768px以下）
 
-    ─ UI構成（v1.1407時点） ─
-    - スマホ（max-width:430px）: 上半分=canvas、下半分=#ui（スクロール可）
-      overscroll-behavior:contain でiPhone慣性スクロールの上位伝播を防止済み
-    - タブレット/PC（max-width:768px超）: 左パネル=#ui、右上=#view-panel
-    - ハンバーガーボタン（768px以下）でパネル開閉
-    - UIの表示/非表示はOFF/ONテキストボタン（目玉アイコン廃止）
-    - mode-badge（画面上部）の解除ボタンは<button>タグ＋touchendで確実動作
+  ─ 主要UI要素 ─
+  - #ui ── Edit用左パネル
+  - #view-panel ── View用右パネル（210px幅）
+  - #mode-badge ── 画面上部モード表示
+      _makeCancelBtn(line1,line2)で2行ボタン生成（white-space:pre-line）
+      touchend+clickの両方でイベント登録済み
+      全モードのline2は「モード解除」に統一（v1.1409〜）
+  - #shadowSlider ── 陰影強度スライダー（min=20,max=80,value=50）
+      ヒートマップ時は「ヒートマップ色の濃度」スライダーに切替（min=0,max=100）
+      濃度はuSaturation uniformで制御（0=グレー, 1=フルカラー）
+  - #heatmapBtn ── ObjectColorボタン（3段階切替）
+      objectColorState: 0=標準, 1=クリーム(#fff5dc), 2=ヒートマップ
+  - #areaAutoSeal ── 自動閉鎖チェックボックス（デフォルトOFF）
+  - #areaLoopToggle ── 連続消去トグル（デフォルトOFF）
+  - #areaDel ── 矩形消去ボタン（ON/OFFのみ、連続はトグルで制御）
+  - body.no-file ── ファイル未ロード時（EditボタンとView-panel無効化）
+  - #vert-count-inline ── iPhone用頂点・ポリゴン数表示（FILE行横）
+  - #ipad-ui-show-btn ── iPad縦持ち用UI復帰ボタン（下部固定）
 
-    ─ 各モードのcontrols.enabled ─
-    - 'none' / 'voxelize' / 'cutter' / 'measure': OrbitControls有効（パン・ズーム可）
-    - 'single' / 'area' / 'lasso': OrbitControls無効（誤操作防止）
+  ─ 各モードのcontrols.enabled ─
+  - 有効: 'none'/'voxelize'/'cutter'/'measure'/'area'/'area-loop'/'single'
+  - 無効（ラッソ描画優先）: 'lasso'
+  - body.mode-select: lasso以外の選択系モード（cursor:crosshair）
 
-    ─ 矩形範囲消去（v1.320～） ─
-    - Sutherland-HodgmanアルゴリズムでスクリーンNDC空間クリッピング
-    - 完全ボックス外→残す / 完全ボックス内→消去 / 境界面→外側部分だけ残す
-    - 消去後にsealHoles(wg, true)でジオメトリに穴埋め面を焼き込む（v1.323～）
-      silent=true でビジュアル表示はスキップ、戻り値をローカル座標に変換して焼く
-      ★ これによりボクセル化前に矩形消去しても穴なし状態を保てる
+  ─ ファイル読み込み（load関数）─
+  - FBX/GLB/OBJに対応
+  - applyMatrix4(matrixWorld)で全頂点焼き込み（100万倍バグ対策）
+  - 100m超えで警告ダイアログ（mm単位誤検知）
+  - OBJはfetchで10%刻み進捗toast表示
 
-    ─ 体積計算 ─
-    - calcVolume()：ダイバージェンス定理、ワールド座標変換→sealHoles→積分
-    - 計算ボタン押下時に「計算中...」表示（setTimeoutで1フレーム先に計算開始）
-    - sealHolesはビジュアル用（緑ワイヤー）と体積計算用を兼用
-      ただし矩形消去後の焼き込みはsilent=trueで呼び出し区別している
+  ─ 矩形範囲消去 ─
+  - Sutherland-Hodgmanクリッピング（境界面も正確にカット）
+  - 自動閉鎖ONならsealHoles(wg,true)で蓋を焼き込み
+  - 連続モード(area-loop)はsetMode('none')しない（継続）
+  - touchmove/touchendでarea-loopも正しく処理（v1.1409修正9）
 
-    ─ 範囲外消去（ラッソ） ─
-    - 未描画時：lassoClearBtn=「解除（戻る）」→setMode('none')
-    - 描画完了後：lassoClearBtn=「描き直し」→clearLasso()して再描画
-    - lassoFinished フラグでupdateLassoExecBtn()が両ボタン状態を管理
+  ─ 範囲外消去（ラッソ）─
+  - 重心判定方式（ラッソ内の面を丸ごと消去）
+  - 未描画時：lassoClearBtn=「描き直し」→setMode('none')
+  - 描画完了後：lassoClearBtn=「描き直し」
 
-    ─ result-box（体積表示） ─
-    - flexレイアウトで「体積」ラベル＋数値＋m³＋「▶ 計算」ボタンを1行に配置
-    - 数値フォントsize:18px、white-space:nowrap で切れ・改行を防止
-    - 「計算中...」もnowrapで改行しない
+  ─ ボクセル化 ─
+  - 高さマップ（2.5D）方式、グリッドサイズ2〜30cm
+  - 法線反転済み（v1.1407〜）→ Office/PowerPointで正常表示
+  - BFS外側判定廃止→スキャンライン内側判定（v1.319〜）
+  - sealHolesはボクセル計算から完全切り離し済み
+
+  ─ sealHoles ─
+  - ファン三角形方式（大開口部で誤差あり、現場許容範囲）
+  - silent=true でビジュアルスキップ、戻り値をgeometryに焼き込む
+
+  ─ L= H= 表示 ─
+  - #obj-size-display（view-panel内）
+  - updateObjSizeDisplay()でロード後・消去後に更新
+  - L=XZ平面最長部（max(sX,sZ)）、H=Y高さ(sY)
+
+  ─ 未解決・今後の検討 ─
+  - OBJ読み込み時のiOSメモリ問題（大ファイルで落ちる場合あり）
+  - OBJ読み込み前にボクセル化して軽量化する案（未実装）
 ================================================================================
 -->
+
 
 <!DOCTYPE html>
 <html lang="ja">
@@ -92,7 +109,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>VolChe - Volume Checker v1.1407</title>
+    <title>VolChe - Volume Checker v1.1409</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -583,6 +600,9 @@
         }
 
 
+        /* iPad縦持ち専用ボタン：デフォルト非表示 */
+        #ipad-ui-show-btn { display: none; }
+
         #select-box {
             border: 2px solid var(--accent2);
             background: rgba(0, 200, 255, 0.15);
@@ -781,6 +801,7 @@
                 transform: none !important;
                 transition: none !important;
                 padding: 8px !important;
+                background: var(--panel) !important;
                 border-top: 2px solid var(--border-bright) !important;
                 border-left: 1px solid var(--border) !important;
             }
@@ -825,15 +846,54 @@
                 inset: auto !important;
             }
 
-            /* ロゴ */
+            /* ロゴ：修正14 左上に移動 */
             #osaki-logo {
-                bottom: calc(40dvh + 4px) !important;
-                right: 8px !important;
+                top: calc(60dvh + 4px) !important;
+                bottom: auto !important;
+                left: 8px !important;
+                right: auto !important;
                 width: 60px !important;
             }
 
-            /* ui-show-btn不要（常時表示） */
+            /* ui-show-btn不要（常時表示）→ 修正11: iPad縦持ちはui-hide-btnを表示、ui-show-btnも有効化 */
             #ui-show-btn { display: none !important; }
+
+            /* 修正12: iPad縦持ちでUI非表示時はgridを組み替えてcanvasを全画面化 */
+            body.ipad-ui-hidden {
+                grid-template-rows: 1fr 0 !important;
+                grid-template-columns: 1fr 0 !important;
+                grid-template-areas:
+                    "canvas canvas"
+                    "canvas canvas" !important;
+            }
+            body.ipad-ui-hidden #ui,
+            body.ipad-ui-hidden #view-panel {
+                display: none !important;
+            }
+            body.ipad-ui-hidden #ipad-ui-show-btn {
+                display: flex !important;
+            }
+            #ipad-ui-show-btn {
+                display: none;
+                position: fixed;
+                bottom: 16px;
+                left: 16px;
+                z-index: 300;
+                background: var(--panel);
+                border: 1px solid var(--border-bright);
+                border-radius: 3px;
+                padding: 6px 12px;
+                font-size: 12px;
+                font-family: var(--mono);
+                color: var(--accent);
+                cursor: pointer;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 0 16px rgba(57,255,143,0.2);
+                touch-action: manipulation;
+                letter-spacing: 0.08em;
+                gap: 6px;
+            }
 
             /* ダブルタップズーム防止 */
             body, canvas, #ui, #view-panel {
@@ -906,7 +966,7 @@
                 position: fixed !important;
                 top: 4px !important;
                 right: 4px !important;
-                width: 120px !important;
+                width: 140px !important;
                 max-height: 48dvh !important;
                 overflow-y: auto !important;
                 transform: none !important;
@@ -914,6 +974,9 @@
                 padding: 6px 8px !important;
                 z-index: 200 !important;
             }
+            /* iPhoneではOFFボタン非表示・▼トグルのみ表示 */
+            #view-panel #view-hide-btn { display: none !important; }
+            #view-panel #view-panel-label { display: none !important; }
             /* トグルヘッダー表示 */
             #view-panel-toggle { display: block !important; }
             /* デフォルト折りたたみ */
@@ -947,8 +1010,8 @@
                 top: auto !important;
                 font-size: 11px !important;
                 padding: 5px 10px !important;
-                white-space: normal !important;
-                max-width: 80% !important;
+                white-space: pre-line !important;
+                max-width: 92% !important;
                 text-align: center !important;
             }
 
@@ -999,6 +1062,9 @@
             .result-label { font-size: 10px !important; letter-spacing: 0.05em !important; }
             /* 修正11: EditのみBtn-gridを3列化（ViewのBtn-gridは対象外） */
             #ui .btn-grid { grid-template-columns: 1fr 1fr 1fr !important; }
+            /* 修正3: iPhoneではstatus-barを非表示、頂点・ポリゴン数はFILE行横に表示 */
+            #status-bar { display: none !important; }
+            #vert-count-inline { display: block !important; }
 
             /* drop-box縮小 */
             .drop-box { padding: 16px 24px !important; }
@@ -1028,7 +1094,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.1407</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.1409</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB / OBJ ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:10px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -1085,7 +1151,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.1407</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.1409</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
@@ -1112,7 +1178,10 @@
             </div>
             <div class="section" style="margin-top:12px;">
                 <div class="section-label">File</div>
-                <button class="btn btn-blue" id="exportBtn">⬇ GLB形式で保存</button>
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <button class="btn btn-blue" id="exportBtn" style="margin-bottom:0; flex:1;">⬇ GLB形式で保存</button>
+                    <div id="vert-count-inline" style="font-family:var(--mono); font-size:10px; color:var(--text-dim); white-space:nowrap; flex-shrink:0; line-height:1.4; text-align:right; display:none;">頂点: --<br>ポリゴン: --</div>
+                </div>
             </div>
         </div>
 
@@ -1219,12 +1288,14 @@
 
     <!-- Edit UI再表示ボタン（左上固定） -->
     <button id="ui-show-btn" title="EditUIを表示" style="display:none; position:fixed; top:16px; left:16px; z-index:300; background:var(--panel); border:1px solid var(--border-bright); border-radius:3px; padding:6px 12px; font-size:12px; font-family:var(--mono); color:var(--accent); cursor:pointer; align-items:center; justify-content:center; box-shadow:0 0 16px rgba(57,255,143,0.2); touch-action:manipulation; letter-spacing:0.08em;">Edit</button>
+    <!-- iPad縦持ち用 Edit+View 復帰ボタン（下部固定） -->
+    <button id="ipad-ui-show-btn" title="UI表示">📋 Edit / View 表示</button>
     <!-- View UI再表示ボタン（右上固定） -->
     <button id="view-show-btn" title="ViewUIを表示" style="display:none; position:fixed; top:16px; right:16px; z-index:300; background:var(--panel); border:1px solid var(--border-bright); border-radius:3px; padding:6px 12px; font-size:12px; font-family:var(--mono); color:var(--accent2); cursor:pointer; align-items:center; justify-content:center; box-shadow:0 0 16px rgba(0,200,255,0.2); touch-action:manipulation; letter-spacing:0.08em;">View</button>
 
     <!-- VIEW PANEL (右上フロート) -->
     <div id="view-panel">
-        <!-- ヘッダー行: VIEWラベル + OFFボタン -->
+        <!-- ヘッダー行: VIEWラベル + OFFボタン（PC/iPad）/ ▼トグル（iPhone） -->
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
             <div id="view-panel-toggle" style="display:none; cursor:pointer; font-family:var(--mono); font-size:11px; color:var(--accent); letter-spacing:0.15em; user-select:none;">
                 VIEW <span id="view-panel-arrow">▼</span>
@@ -1368,7 +1439,8 @@
                 side: THREE.DoubleSide,
                 uniforms: {
                     uYMin: { value: yMin },
-                    uYMax: { value: yMax }
+                    uYMax: { value: yMax },
+                    uSaturation: { value: 1.0 }
                 },
                 vertexShader: `
                     varying float vWorldY;
@@ -1381,6 +1453,7 @@
                 fragmentShader: `
                     uniform float uYMin;
                     uniform float uYMax;
+                    uniform float uSaturation;
                     varying float vWorldY;
                     void main() {
                         float t = clamp((vWorldY - uYMin) / max(uYMax - uYMin, 0.0001), 0.0, 1.0);
@@ -1399,6 +1472,9 @@
                             float s = (t - 0.75) / 0.25;
                             col = vec3(1.0, 1.0 - s, 0.0);
                         }
+                        // 彩度制御: uSaturation=0でグレースケール、1でフルカラー
+                        float gray = dot(col, vec3(0.299, 0.587, 0.114));
+                        col = mix(vec3(gray), col, uSaturation);
                         gl_FragColor = vec4(col, 1.0);
                     }
                 `
@@ -1801,7 +1877,7 @@
             // calcVolumeがさらにsealHolesを実行するとダブルシールで誤差が出る
             // ユーザーに明示的に再計算させることで正確な値を保証する
             document.getElementById('result').textContent = '---';
-            toast('カット完了！▶ 体積計算ボタンで再計算してね');
+            toast('カット完了！\n▶ 体積計算ボタンで再計算してね');
  
 // --- カット後の形を新しい基準にする ---
 
@@ -1864,6 +1940,10 @@
             const el = document.getElementById('vert-count');
             if (el) el.textContent = verts === 0 ? '頂点: -- / ポリゴン: --'
                 : `頂点: ${verts.toLocaleString()} / ポリゴン: ${polys.toLocaleString()}`;
+            // 修正3: iPhone用インライン表示も同時更新
+            const eli = document.getElementById('vert-count-inline');
+            if (eli) eli.innerHTML = verts === 0 ? '頂点: --<br>ポリゴン: --'
+                : `頂点: ${verts.toLocaleString()}<br>ポリゴン: ${polys.toLocaleString()}`;
         }
 
         // ─────────────────────────────────────────────
@@ -2690,7 +2770,7 @@
                     document.getElementById('simplify-idle-btns').style.display = 'none';
                     document.getElementById('simplify-confirm-btns').style.display = 'block';
                     setStatus('HEIGHT-MAP READY');
-                    toast('高さマップ表示中。「この形状に変換」で確定・「キャンセル」で元に戻るよ');
+                    toast('ボクセルイメージ表示中。\n「この形状に変換」で確定\n「キャンセル」で元に戻るよ');
                 } catch(e) {
                     console.error('[Voxelize] preview failed:', e);
                     _clearSimplifyPreviewOnly();
@@ -3195,25 +3275,25 @@
                 return `<button class="cancel-hint" id="badge-cancel-btn" style="white-space:pre-line; line-height:1.3; min-width:90px;">${line1}\n${line2}</button>`;
             }
             if (mode === 'single') {
-                modeBadge.innerHTML = _makeCancelBtn('個別消去', '解除');
+                modeBadge.innerHTML = _makeCancelBtn('個別消去', 'モード解除');
                 modeBadge.classList.add('active'); setStatus('MODE: SINGLE DEL');
             } else if (mode === 'area') {
-                modeBadge.innerHTML = _makeCancelBtn('矩形範囲消去', '（１回）解除');
+                modeBadge.innerHTML = _makeCancelBtn('矩形範囲消去', 'モード解除');
                 modeBadge.classList.add('active'); setStatus('MODE: AREA DEL');
             } else if (mode === 'area-loop') {
-                modeBadge.innerHTML = _makeCancelBtn('矩形範囲消去', '（連続）解除');
+                modeBadge.innerHTML = _makeCancelBtn('矩形範囲消去', 'モード解除');
                 modeBadge.classList.add('active'); setStatus('MODE: AREA LOOP');
             } else if (mode === 'lasso') {
-                modeBadge.innerHTML = _makeCancelBtn('範囲外消去', '指でなぞる');
+                modeBadge.innerHTML = _makeCancelBtn('範囲外消去', 'モード解除');
                 modeBadge.classList.add('active'); setStatus('MODE: LASSO DEL');
             } else if (mode === 'measure') {
-                modeBadge.innerHTML = _makeCancelBtn('距離測定', '2点タップ');
+                modeBadge.innerHTML = _makeCancelBtn('距離測定', 'モード解除');
                 modeBadge.classList.add('active'); setStatus('MODE: MEASURE');
             } else if (mode === 'cutter') {
-                modeBadge.innerHTML = _makeCancelBtn('地盤面カット', '解除');
+                modeBadge.innerHTML = _makeCancelBtn('地盤面カット', 'モード解除');
                 modeBadge.classList.add('active'); setStatus('MODE: CUTTER');
             } else if (mode === 'voxelize') {
-                modeBadge.innerHTML = _makeCancelBtn('ボクセル化', '解除');
+                modeBadge.innerHTML = _makeCancelBtn('ボクセル化', 'モード解除');
                 modeBadge.classList.add('active'); setStatus('VOXELIZING...');
             } else {
                 modeBadge.classList.remove('active'); setStatus('READY');
@@ -3233,6 +3313,8 @@
                     setMode('none');
                 }, { passive: false });
             }
+            // 修正10: モード変化のたびにOFFボタン表示を更新
+            if (typeof _updateUiHideBtnVisibility === 'function') _updateUiHideBtnVisibility();
         }
 
         // ─────────────────────────────────────────────
@@ -3262,7 +3344,7 @@
             }
         }, { passive: false });
         window.addEventListener('touchmove',  e => {
-            if (mode === 'lasso' || mode === 'area') {
+            if (mode === 'lasso' || mode === 'area' || mode === 'area-loop') {
                 const t = e.changedTouches[0];
                 // canvasエリア内のタッチのみpreventDefault（#uiのスクロールは阻止しない）
                 const canvasRect = renderer.domElement.getBoundingClientRect();
@@ -3273,7 +3355,7 @@
             }
         }, { passive: false });
         window.addEventListener('touchend', e => {
-            if (mode === 'lasso' || mode === 'area') {
+            if (mode === 'lasso' || mode === 'area' || mode === 'area-loop') {
                 const t = e.changedTouches[0];
                 // canvasエリア内のタッチのみpreventDefault（ボタンのclickイベントを殺さない）
                 const canvasRect = renderer.domElement.getBoundingClientRect();
@@ -3378,7 +3460,7 @@
                     lassoFinished = true;
                     drawLasso();
                     updateLassoExecBtn();
-                    toast('ラインが描けたよ！「消去実行」で範囲外を削除するわ');
+                    toast('ラインが描けたよ！\n「消去実行」で範囲外を消去するね');
                 } else {
                     clearLasso();
                     toast('もう少し大きくドラッグしてね', true);
@@ -3681,7 +3763,7 @@ if (changed) {
             if (_simplifyPreviewGeos) {
                 _clearSimplifyPreviewOnly();
                 _resetSimplifyPreviewUI();
-                toast('サイズを変えたよ。再度「プレビュー＆計算」してね');
+                toast('グリッドサイズが変わったので\n再度「プレビュー＆計算」してね');
             }
         };
 
@@ -3759,21 +3841,23 @@ if (changed) {
                 btn.style.background = 'rgba(255,107,43,0.15)';
                 btn.style.borderColor = '#ff6b2b';
                 btn.style.color = '#ff9966';
-                // 修正5: スライダーを透明度モードに切替
-                if (sliderLabel) sliderLabel.textContent = '透明度';
+                // 修正4: スライダーを「色の濃度」モードに切替
+                if (sliderLabel) sliderLabel.textContent = 'ヒートマップ色の濃度';
                 if (slider) {
-                    slider.min = 0; slider.max = 50; slider.value = 0;
-                    slider.style.background = 'linear-gradient(90deg, var(--accent) 0%, #222 0%)';
+                    slider.min = 0; slider.max = 100; slider.value = 100;
+                    slider.style.background = 'linear-gradient(90deg, var(--accent) 100%, #222 100%)';
                     slider.oninput = () => {
-                        const opacity = 1.0 - parseInt(slider.value) / 100;
+                        const saturation = parseInt(slider.value) / 100; // 0=グレー, 1=フル彩度
                         targetMeshes.forEach(m => {
                             if (m.material && m.material.isShaderMaterial) {
-                                m.material.transparent = opacity < 1.0;
-                                m.material.opacity = opacity;
-                                m.material.needsUpdate = true;
+                                // uSaturationをuniformで渡す（後方互換: uniformがなければスキップ）
+                                if (m.material.uniforms.uSaturation !== undefined) {
+                                    m.material.uniforms.uSaturation.value = saturation;
+                                    m.material.needsUpdate = true;
+                                }
                             }
                         });
-                        const pct = Math.round((parseInt(slider.value) / 50) * 100);
+                        const pct = Math.round(saturation * 100);
                         slider.style.background = `linear-gradient(90deg, var(--accent) ${pct}%, #222 ${pct}%)`;
                     };
                 }
@@ -3904,7 +3988,19 @@ if (changed) {
         // ── UI 非表示/再表示 ──
         const uiHideBtn = document.getElementById('ui-hide-btn');
         const uiShowBtn = document.getElementById('ui-show-btn');
+
+        function _isIpadPortrait() {
+            return window.matchMedia('(min-width:431px) and (max-width:1024px) and (orientation:portrait) and (pointer:coarse)').matches;
+        }
+
         uiHideBtn.addEventListener('click', () => {
+            if (_isIpadPortrait()) {
+                // 修正11・12: iPad縦持ちはEdit+Viewを一括非表示してgridを解放
+                document.body.classList.add('ipad-ui-hidden');
+                setTimeout(onResize, 50);
+                return;
+            }
+            // iPhone / PC: 従来動作
             document.getElementById('ui').style.display = 'none';
             document.body.classList.add('ui-hidden');
             uiShowBtn.style.display = 'flex';
@@ -3916,6 +4012,12 @@ if (changed) {
             uiShowBtn.style.display = 'none';
             setTimeout(onResize, 50);
         });
+
+        // 修正10: setMode時にOFFボタンの表示/非表示を制御（モード中は隠す）
+        function _updateUiHideBtnVisibility() {
+            if (!uiHideBtn) return;
+            uiHideBtn.style.display = (mode !== 'none') ? 'none' : '';
+        }
 
         // ── VIEW パネル 非表示/再表示 ──
         const viewHideBtn = document.getElementById('view-hide-btn');
@@ -3933,6 +4035,21 @@ if (changed) {
                 viewShowBtn.style.display = 'none';
                 setTimeout(onResize, 50);
             });
+        }
+
+        // 修正11・12: iPad縦持ち用 Edit+View 一括ON/OFF
+        const ipadUiShowBtn = document.getElementById('ipad-ui-show-btn');
+
+        if (ipadUiShowBtn) {
+            ipadUiShowBtn.addEventListener('click', () => {
+                document.body.classList.remove('ipad-ui-hidden');
+                setTimeout(onResize, 50);
+            });
+            ipadUiShowBtn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                document.body.classList.remove('ipad-ui-hidden');
+                setTimeout(onResize, 50);
+            }, { passive: false });
         }
 
         // 視点ボタン
@@ -4076,11 +4193,15 @@ if (changed) {
         // スマホでlayout確定後に再計算
         setTimeout(onResize, 100);
 
-        // ── Safari ピンチズーム防止 ──
+        // ── Safari ピンチズーム防止（修正15強化版）──
         // gesturestart/gesturechange はSafari独自。pageズームを防いでThree.jsに渡す
         document.addEventListener('gesturestart',  e => e.preventDefault(), { passive: false });
         document.addEventListener('gesturechange', e => e.preventDefault(), { passive: false });
         document.addEventListener('gestureend',    e => e.preventDefault(), { passive: false });
+        // touchstart 2本指でもズーム開始を防止
+        document.addEventListener('touchstart', e => {
+            if (e.touches.length > 1) e.preventDefault();
+        }, { passive: false });
         // touchmove 2本指も防止（OrbitControlsが処理するので問題なし）
         document.addEventListener('touchmove', e => {
             if (e.touches.length > 1) e.preventDefault();
