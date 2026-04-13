@@ -8,7 +8,7 @@
 
   【バージョンルール】
     指示がない限り、軽微な更新でも毎回バージョンを 1 つ上げること。
-    例: v1.1411 → v1.1412
+    例: v1.1413 → v1.1414
 
   【Claude への引き継ぎメモ】
 
@@ -43,7 +43,7 @@
   - #mode-badge ── 画面上部モード表示
       _makeCancelBtn(line1,line2)で2行ボタン生成（white-space:pre-line）
       touchend+clickの両方でイベント登録済み
-      全モードのline2は「モード解除」に統一（v1.1411〜）
+      全モードのline2は「モード解除」に統一（v1.1413〜）
   - #shadowSlider ── 陰影強度スライダー（min=20,max=80,value=50）
       ヒートマップ時は「ヒートマップ色の濃度」スライダーに切替（min=0,max=100）
       濃度はuSaturation uniformで制御（0=グレー, 1=フルカラー）
@@ -71,7 +71,7 @@
   - Sutherland-Hodgmanクリッピング（境界面も正確にカット）
   - 自動閉鎖ONならsealHoles(wg,true)で蓋を焼き込み
   - 連続モード(area-loop)はsetMode('none')しない（継続）
-  - touchmove/touchendでarea-loopも正しく処理（v1.1411修正9）
+  - touchmove/touchendでarea-loopも正しく処理（v1.1413修正9）
 
   ─ 範囲外消去（ラッソ）─
   - 重心判定方式（ラッソ内の面を丸ごと消去）
@@ -80,7 +80,7 @@
 
   ─ ボクセル化 ─
   - 高さマップ（2.5D）方式、グリッドサイズ2〜30cm
-  - 法線は外向き統一（v1.1411〜）→ calcVolumeのダイバージェンス定理が正確に動く
+  - 法線は外向き統一（v1.1413〜）→ calcVolumeのダイバージェンス定理が正確に動く
     ※v1.1407〜v1.1408で法線反転（Office対応）→ calcVolumeが1/3になるバグの原因だった
   - _isVoxelizedフラグ：ボクセル確定後にcalcVolumeで_voxelVolumeをそのまま返す
   - autoResetRollKeepCamera：_isVoxelized=trueの場合_clearVolumeDisplayをスキップ
@@ -115,7 +115,7 @@
     _bakeAndCenter未実行時はgroundY > 0 → 体積が過小評価（1/4〜1/2）
     ボクセル体積がおかしい場合は「視点再調整[R]」後に再ボクセル化で修正可
 
-  v1.1408のJSクラッシュ原因（v1.1411で修正済み）：
+  v1.1408のJSクラッシュ原因（v1.1413で修正済み）：
     - const ipadUiShowBtn の二重宣言 → スクリプト全体がクラッシュ
     - クラッシュにより _bakeAndCenter() 未実行 → ボクセル体積が1/4問題の二次被害
 ================================================================================
@@ -137,7 +137,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>VolChe - Volume Checker v1.1411</title>
+    <title>VolChe - Volume Checker v1.1413</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -937,7 +937,7 @@
            max-width:430px かつ pointer:coarse で限定
            iPad・PC は完全無影響
 
-           ★ 高さ比率について（v1.1411〜）
+           ★ 高さ比率について（v1.1413〜）
            Safari上部（時計）・下部（アドレスバー）を除いた
            visual viewport を100%として実機計測：
              上: canvas  約56.5%
@@ -1140,7 +1140,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.1411</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.1413</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB / OBJ ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:10px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -1197,7 +1197,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.1411</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.1413</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
@@ -2424,6 +2424,38 @@
             if (!hint) return;
             const cm = parseInt(document.getElementById('simplifySlider').value);
             if (valEl) valEl.textContent = cm + ' cm';
+
+            // モデルのXZ範囲からセル数を試算
+            if (targetMeshes.length > 0) {
+                modelGroup.updateMatrixWorld(true);
+                const bb = getWorldBBox(targetMeshes);
+                if (bb) {
+                    const vs = cm / 100;
+                    const nx = Math.min(Math.ceil(bb.sX / vs), 500);
+                    const nz = Math.min(Math.ceil(bb.sZ / vs), 500);
+                    const cells = nx * nz;
+                    const cellsK = cells >= 10000 ? (cells / 10000).toFixed(1) + '万' : cells.toLocaleString();
+
+                    // 危険度判定（iPhone 16e実測ベース）:
+                    // 14万セル超=危険(赤)、11万超=注意(黄)、それ以下=安全(青緑)
+                    let color, icon;
+                    if (cells > 140000) {
+                        color = 'var(--warn)';   // 赤
+                        icon = '⚠ ';
+                    } else if (cells > 110000) {
+                        color = '#ffd700';        // 黄
+                        icon = '⚡ ';
+                    } else {
+                        color = 'var(--accent2)'; // 青緑
+                        icon = '';
+                    }
+                    hint.style.color = color;
+                    hint.textContent = `${icon}${cm}cm角 / 約${cellsK}セル`;
+                    return;
+                }
+            }
+            // モデル未ロード時
+            hint.style.color = 'var(--accent2)';
             hint.textContent = `XZグリッド ${cm}cm 角で積算`;
         }
 
@@ -2727,8 +2759,22 @@
 
         // プレビューオブジェクトだけクリア（mode/menuは触らない）
         function _clearSimplifyPreviewOnly() {
-            if (_simplifyPreviewObj) { scene.remove(_simplifyPreviewObj); _simplifyPreviewObj = null; }
-            _simplifyPreviewGeos = null;
+            if (_simplifyPreviewObj) {
+                scene.remove(_simplifyPreviewObj);
+                // ★ GPU・CPUメモリを明示的に解放（Safari/WebKitのGC待ち対策）
+                _simplifyPreviewObj.traverse(child => {
+                    if (child.geometry) child.geometry.dispose();
+                    if (child.material) {
+                        if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+                        else child.material.dispose();
+                    }
+                });
+                _simplifyPreviewObj = null;
+            }
+            if (_simplifyPreviewGeos) {
+                _simplifyPreviewGeos.forEach(g => { if (g) g.dispose(); });
+                _simplifyPreviewGeos = null;
+            }
             _voxelVolume = 0;
             targetMeshes.forEach(m => {
                 if (!m.material) return;
@@ -2852,17 +2898,21 @@
             // 元メッシュを1つ目に焼き付け、残りを除去
             targetMeshes.forEach((m, i) => {
                 if (i === 0) {
-                    m.geometry.dispose();
+                    m.geometry.dispose(); // 旧ジオメトリを明示的に解放
                     m.geometry = voxelGeo;
-                    // メッシュ自身のローカルtransformもリセット
                     m.position.set(0, 0, 0);
                     m.rotation.set(0, 0, 0);
                     m.scale.set(1, 1, 1);
                     m.updateMatrixWorld(true);
                 } else {
+                    m.geometry.dispose(); // 余分なメッシュも解放
+                    if (m.material) {
+                        if (Array.isArray(m.material)) m.material.forEach(mt => mt.dispose());
+                        else m.material.dispose();
+                    }
                     modelGroup.remove(m);
                 }
-                if (m.material) {
+                if (i === 0 && m.material) {
                     m.material.transparent = false;
                     m.material.opacity = 1;
                     m.material.needsUpdate = true;
@@ -2871,7 +2921,18 @@
             // targetMeshesも1つに絞る
             targetMeshes.splice(1);
 
-            if (_simplifyPreviewObj) { scene.remove(_simplifyPreviewObj); _simplifyPreviewObj = null; }
+            // プレビューオブジェクトも完全解放
+            if (_simplifyPreviewObj) {
+                scene.remove(_simplifyPreviewObj);
+                _simplifyPreviewObj.traverse(child => {
+                    if (child.geometry) child.geometry.dispose();
+                    if (child.material) {
+                        if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+                        else child.material.dispose();
+                    }
+                });
+                _simplifyPreviewObj = null;
+            }
             _simplifyPreviewGeos = null;
             _isVoxelized = true;  // ボクセル化確定：calcVolumeでsealHolesをスキップ
 
