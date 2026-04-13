@@ -8,7 +8,7 @@
 
   【バージョンルール】
     指示がない限り、軽微な更新でも毎回バージョンを 1 つ上げること。
-    例: v1.1409 → v1.1410
+    例: v1.1411 → v1.1412
 
   【Claude への引き継ぎメモ】
 
@@ -43,7 +43,7 @@
   - #mode-badge ── 画面上部モード表示
       _makeCancelBtn(line1,line2)で2行ボタン生成（white-space:pre-line）
       touchend+clickの両方でイベント登録済み
-      全モードのline2は「モード解除」に統一（v1.1409〜）
+      全モードのline2は「モード解除」に統一（v1.1411〜）
   - #shadowSlider ── 陰影強度スライダー（min=20,max=80,value=50）
       ヒートマップ時は「ヒートマップ色の濃度」スライダーに切替（min=0,max=100）
       濃度はuSaturation uniformで制御（0=グレー, 1=フルカラー）
@@ -71,7 +71,7 @@
   - Sutherland-Hodgmanクリッピング（境界面も正確にカット）
   - 自動閉鎖ONならsealHoles(wg,true)で蓋を焼き込み
   - 連続モード(area-loop)はsetMode('none')しない（継続）
-  - touchmove/touchendでarea-loopも正しく処理（v1.1409修正9）
+  - touchmove/touchendでarea-loopも正しく処理（v1.1411修正9）
 
   ─ 範囲外消去（ラッソ）─
   - 重心判定方式（ラッソ内の面を丸ごと消去）
@@ -80,7 +80,10 @@
 
   ─ ボクセル化 ─
   - 高さマップ（2.5D）方式、グリッドサイズ2〜30cm
-  - 法線反転済み（v1.1407〜）→ Office/PowerPointで正常表示
+  - 法線は外向き統一（v1.1411〜）→ calcVolumeのダイバージェンス定理が正確に動く
+    ※v1.1407〜v1.1408で法線反転（Office対応）→ calcVolumeが1/3になるバグの原因だった
+  - _isVoxelizedフラグ：ボクセル確定後にcalcVolumeで_voxelVolumeをそのまま返す
+  - autoResetRollKeepCamera：_isVoxelized=trueの場合_clearVolumeDisplayをスキップ
   - BFS外側判定廃止→スキャンライン内側判定（v1.319〜）
   - sealHolesはボクセル計算から完全切り離し済み
 
@@ -112,7 +115,7 @@
     _bakeAndCenter未実行時はgroundY > 0 → 体積が過小評価（1/4〜1/2）
     ボクセル体積がおかしい場合は「視点再調整[R]」後に再ボクセル化で修正可
 
-  v1.1408のJSクラッシュ原因（v1.1409で修正済み）：
+  v1.1408のJSクラッシュ原因（v1.1411で修正済み）：
     - const ipadUiShowBtn の二重宣言 → スクリプト全体がクラッシュ
     - クラッシュにより _bakeAndCenter() 未実行 → ボクセル体積が1/4問題の二次被害
 ================================================================================
@@ -129,10 +132,12 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="VolChe">
     <meta name="mobile-web-app-capable" content="yes">
+    <!-- 縦向き固定（Webアプリモード用） -->
+    <meta name="apple-mobile-web-app-orientation" content="portrait">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>VolChe - Volume Checker v1.1409</title>
+    <title>VolChe - Volume Checker v1.1411</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -932,7 +937,7 @@
            max-width:430px かつ pointer:coarse で限定
            iPad・PC は完全無影響
 
-           ★ 高さ比率について（v1.1409〜）
+           ★ 高さ比率について（v1.1411〜）
            Safari上部（時計）・下部（アドレスバー）を除いた
            visual viewport を100%として実機計測：
              上: canvas  約56.5%
@@ -1135,7 +1140,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.1409</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.1411</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB / OBJ ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:10px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -1192,7 +1197,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.1409</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.1411</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
@@ -2641,18 +2646,18 @@
                     const y0=groundY, y1=yTop;
                     const z0=minZ+iz*voxelSize, z1=z0+voxelSize;
 
-                    // 上面（法線反転済み）
-                    currentChunk.push(x0,y1,z0, x1,y1,z1, x0,y1,z1,  x0,y1,z0, x1,y1,z0, x1,y1,z1);
-                    // 下面（法線反転済み）
-                    currentChunk.push(x0,y0,z1, x1,y0,z0, x1,y0,z1,  x0,y0,z1, x0,y0,z0, x1,y0,z0);
-                    // 前面z1（法線反転済み）
-                    currentChunk.push(x0,y0,z1, x1,y1,z1, x0,y1,z1,  x0,y0,z1, x1,y0,z1, x1,y1,z1);
-                    // 後面z0（法線反転済み）
-                    currentChunk.push(x1,y0,z0, x0,y1,z0, x1,y1,z0,  x1,y0,z0, x0,y0,z0, x0,y1,z0);
-                    // 右面x1（法線反転済み）
-                    currentChunk.push(x1,y0,z1, x1,y1,z0, x1,y1,z1,  x1,y0,z1, x1,y0,z0, x1,y1,z0);
-                    // 左面x0（法線反転済み）
-                    currentChunk.push(x0,y0,z0, x0,y1,z1, x0,y1,z0,  x0,y0,z0, x0,y0,z1, x0,y1,z1);
+                    // 上面（外向き法線）
+                    currentChunk.push(x0,y1,z0, x1,y1,z0, x1,y1,z1,  x0,y1,z0, x1,y1,z1, x0,y1,z1);
+                    // 下面（外向き法線）
+                    currentChunk.push(x0,y0,z1, x1,y0,z1, x1,y0,z0,  x0,y0,z1, x1,y0,z0, x0,y0,z0);
+                    // 前面z1（外向き法線）
+                    currentChunk.push(x0,y0,z1, x0,y1,z1, x1,y1,z1,  x0,y0,z1, x1,y1,z1, x1,y0,z1);
+                    // 後面z0（外向き法線）
+                    currentChunk.push(x1,y0,z0, x1,y1,z0, x0,y1,z0,  x1,y0,z0, x0,y1,z0, x0,y0,z0);
+                    // 右面x1（外向き法線）
+                    currentChunk.push(x1,y0,z1, x1,y1,z1, x1,y1,z0,  x1,y0,z1, x1,y1,z0, x1,y0,z0);
+                    // 左面x0（外向き法線）
+                    currentChunk.push(x0,y0,z0, x0,y1,z0, x0,y1,z1,  x0,y0,z0, x0,y1,z1, x0,y0,z1);
 
                     chunkVoxelCount++;
                     if (chunkVoxelCount >= MAX_VOXELS_PER_CHUNK) {
@@ -3048,7 +3053,8 @@
             if (targetMeshes.length === 0) return;
             _bakeAndCenter();
             // ★ カメラは動かさない
-            _clearVolumeDisplay();
+            // ボクセル化済みの場合は体積表示をリセットしない（_voxelVolumeを保持）
+            if (!_isVoxelized) _clearVolumeDisplay();
         }
 
         // ─────────────────────────────────────────────
@@ -4236,6 +4242,44 @@ if (changed) {
                 if (tag !== 'INPUT' && tag !== 'TEXTAREA') resetRoll();
             }
         });
+
+        // ── 縦向き固定（Screen Orientation API） ──
+        // タッチデバイスのみ縦向きにロック（PCは無視）
+        if (window.screen && window.screen.orientation && window.screen.orientation.lock) {
+            const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+            if (isTouchDevice) {
+                window.screen.orientation.lock('portrait').catch(() => {
+                    // ロック非対応環境（Safari等）では失敗するが無視
+                });
+            }
+        }
+
+        // 横向きになった時のオーバーレイ警告（Safari等でロックできない場合の対策）
+        const orientOverlay = document.createElement('div');
+        orientOverlay.id = 'orient-overlay';
+        orientOverlay.style.cssText = `
+            display:none; position:fixed; inset:0; z-index:9999;
+            background:rgba(13,15,14,0.97);
+            flex-direction:column; align-items:center; justify-content:center;
+            font-family:var(--mono); color:var(--accent); text-align:center;
+            gap:16px;
+        `;
+        orientOverlay.innerHTML = `
+            <div style="font-size:48px;">↩️</div>
+            <div style="font-size:16px; letter-spacing:0.1em;">縦向きにしてね</div>
+            <div style="font-size:11px; color:var(--text-dim);">このアプリは縦向き専用です</div>
+        `;
+        document.body.appendChild(orientOverlay);
+
+        function checkOrientation() {
+            // pointer:coarse（タッチデバイス）かつ横向きの場合のみ表示
+            const isTouch = window.matchMedia('(pointer:coarse)').matches;
+            const isLandscape = window.matchMedia('(orientation:landscape)').matches;
+            orientOverlay.style.display = (isTouch && isLandscape) ? 'flex' : 'none';
+        }
+        window.addEventListener('orientationchange', checkOrientation);
+        window.addEventListener('resize', checkOrientation);
+        checkOrientation(); // 初期チェック
 
         // Resize
         // リサイズ（スマホ時はcanvasの実サイズを使う）
