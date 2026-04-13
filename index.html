@@ -8,7 +8,7 @@
 
   【バージョンルール】
     指示がない限り、軽微な更新でも毎回バージョンを 1 つ上げること。
-    例: v1.1415 → v1.1416
+    例: v1.1416 → v1.1417
 
   【Claude への引き継ぎメモ】
 
@@ -43,7 +43,7 @@
   - #mode-badge ── 画面上部モード表示
       _makeCancelBtn(line1,line2)で2行ボタン生成（white-space:pre-line）
       touchend+clickの両方でイベント登録済み
-      全モードのline2は「モード解除」に統一（v1.1415〜）
+      全モードのline2は「モード解除」に統一（v1.1416〜）
   - #shadowSlider ── 陰影強度スライダー（min=20,max=80,value=50）
       ヒートマップ時は「ヒートマップ色の濃度」スライダーに切替（min=0,max=100）
       濃度はuSaturation uniformで制御（0=グレー, 1=フルカラー）
@@ -71,7 +71,7 @@
   - Sutherland-Hodgmanクリッピング（境界面も正確にカット）
   - 自動閉鎖ONならsealHoles(wg,true)で蓋を焼き込み
   - 連続モード(area-loop)はsetMode('none')しない（継続）
-  - touchmove/touchendでarea-loopも正しく処理（v1.1415修正9）
+  - touchmove/touchendでarea-loopも正しく処理（v1.1416修正9）
 
   ─ 範囲外消去（ラッソ）─
   - 重心判定方式（ラッソ内の面を丸ごと消去）
@@ -80,7 +80,7 @@
 
   ─ ボクセル化 ─
   - 高さマップ（2.5D）方式、グリッドサイズ2〜30cm
-  - 法線は外向き統一（v1.1415〜）→ calcVolumeのダイバージェンス定理が正確に動く
+  - 法線は外向き統一（v1.1416〜）→ calcVolumeのダイバージェンス定理が正確に動く
     ※v1.1407〜v1.1408で法線反転（Office対応）→ calcVolumeが1/3になるバグの原因だった
   - _isVoxelizedフラグ：ボクセル確定後にcalcVolumeで_voxelVolumeをそのまま返す
   - autoResetRollKeepCamera：_isVoxelized=trueの場合_clearVolumeDisplayをスキップ
@@ -111,11 +111,10 @@
     ダイバージェンス定理 / sealHolesで底面を閉じてから積分
 
   ボクセル体積計算（_buildVoxelGeoFromGeos）：
-    groundY = min(heightMap) → _bakeAndCenter後はgroundY≈0 → 正確
-    _bakeAndCenter未実行時はgroundY > 0 → 体積が過小評価（1/4〜1/2）
-    ボクセル体積がおかしい場合は「視点再調整[R]」後に再ボクセル化で修正可
+    groundY = min(allY) = 全頂点の最小Y = オブジェクト実底面
+    heightMapの最小値を使うと「各セル天井Yの最小値」になり赤道面になってしまう→下半分消失バグ
 
-  v1.1408のJSクラッシュ原因（v1.1415で修正済み）：
+  v1.1408のJSクラッシュ原因（v1.1416で修正済み）：
     - const ipadUiShowBtn の二重宣言 → スクリプト全体がクラッシュ
     - クラッシュにより _bakeAndCenter() 未実行 → ボクセル体積が1/4問題の二次被害
 ================================================================================
@@ -137,7 +136,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>VolChe - Volume Checker v1.1415</title>
+    <title>VolChe - Volume Checker v1.1416</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -947,7 +946,7 @@
            max-width:430px かつ pointer:coarse で限定
            iPad・PC は完全無影響
 
-           ★ 高さ比率について（v1.1415〜）
+           ★ 高さ比率について（v1.1416〜）
            Safari上部（時計）・下部（アドレスバー）を除いた
            visual viewport を100%として実機計測：
              上: canvas  約56.5%
@@ -1150,7 +1149,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.1415</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.1416</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB / OBJ ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:8px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -1207,7 +1206,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.1415</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.1416</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
@@ -2512,9 +2511,10 @@
             const gridCapped = (Math.ceil((maxX - minX) / voxelSize) > 500 || Math.ceil((maxZ - minZ) / voxelSize) > 500);
 
             // ① 高さマップ作成：三角形ラスタライズ方式
-            // 頂点サンプリングだと斜面の中間セルに頂点が落ちずすっぽ抜ける。
-            // 各三角形をXZグリッドに投影し、三角形が通過する全セルにYを補間して書き込む。
+            // XZ投影でオブジェクトが存在するセルを coverMap で記録し、
+            // そのセル全体をGL面から最高点まで積み上げる（球体の下半分も正しく処理）
             const heightMap = new Float32Array(nx * nz).fill(-Infinity);
+            const coverMap  = new Uint8Array(nx * nz);   // XZ投影で存在するセル
 
             // 三角形がAABBで覆うセル範囲を走査し、XZ内側判定＋Y線形補間で書き込む
             function rasterizeTri(ax,ay,az, bx,by,bz, cx,cy,cz) {
@@ -2540,10 +2540,12 @@
                         const w = 1 - u - v;
                         if (u < -0.01 || v < -0.01 || w < -0.01) continue;
 
-                        // Y値を重心補間
+                        // Y値を重心補間（最大値を記録）
                         const y = u*ay + v*by + w*cy;
                         const id = iz*nx+ix;
                         if (y > heightMap[id]) heightMap[id] = y;
+                        // XZ投影フラグ：このセルにオブジェクトが存在する
+                        coverMap[id] = 1;
                     }
                 }
             }
@@ -2573,25 +2575,43 @@
                 }
             });
 
-            // ② 地盤面 = heightMapの絶対最小値（Erosion前に確定）
-            // 異常に低い点があれば視覚的にすぐわかる→ユーザーが個別消去で対処できる
-            const cellYs = [];
-            for (let i = 0; i < nx * nz; i++) {
-                if (heightMap[i] !== -Infinity) cellYs.push(heightMap[i]);
+            // coverMapが立ってるセルのheightMapが-Infinityなら、
+            // そのセルはXZ投影的に存在するが高さデータが取れてない（球体下部など）
+            // → 隣接セルの最大高さで補完（ここでXZ投影の穴を埋める）
+            for (let iz = 0; iz < nz; iz++) {
+                for (let ix = 0; ix < nx; ix++) {
+                    const id = iz*nx+ix;
+                    if (coverMap[id] && heightMap[id] === -Infinity) {
+                        // 隣接の有効セルの最大Yを使う
+                        let maxNeighY = -Infinity;
+                        for (let dz=-1;dz<=1;dz++) for (let dx=-1;dx<=1;dx++) {
+                            if (!dz&&!dx) continue;
+                            const niz=iz+dz, nix=ix+dx;
+                            if (niz<0||niz>=nz||nix<0||nix>=nx) continue;
+                            if (heightMap[niz*nx+nix] > maxNeighY) maxNeighY = heightMap[niz*nx+nix];
+                        }
+                        if (maxNeighY > -Infinity) heightMap[id] = maxNeighY;
+                    }
+                }
             }
-            cellYs.sort((a, b) => a - b);
-            // groundYはErosion前に確定（ロード時_bakeAndCenter済みでgroundY≈0が前提）
-            const groundY = cellYs[0];
 
-            // ③ ゴーストセル除去（スパースメッシュの孤立頂点による幽霊ボクセル防止）
-            // 隣接有効セル数が2未満のセルを繰り返し侵食（Erosion）で除去。
-            // 球面メッシュのポールや対角頂点が飛び込んだ孤立セルを確実に除去する。
+            // ② 地盤面 = 全頂点の絶対最小Y（オブジェクトの実際の底面）
+            // ※ heightMapの最小値ではなく allY の最小値を使う。
+            //    heightMapは各セルの「最高点」なので、その最小値は赤道面になってしまい
+            //    下半分のボクセルがすべて h<=0 でスキップされるバグがあった。
+            let groundY = Infinity;
+            for (const y of allY) if (y < groundY) groundY = y;
+
+            // ③ ゴーストセル除去（孤立頂点による幽霊ボクセル防止）
+            // coverMapが立ってないセルのみ除去対象とする
             for (let ep = 0; ep < 3; ep++) {
                 const rm = new Uint8Array(nx * nz);
                 let anyRm = false;
                 for (let iz = 0; iz < nz; iz++) {
                     for (let ix = 0; ix < nx; ix++) {
-                        if (heightMap[iz*nx+ix] === -Infinity) continue;
+                        const id = iz*nx+ix;
+                        if (heightMap[id] === -Infinity) continue;
+                        if (coverMap[id]) continue; // coverMap由来は除去しない
                         let cnt = 0;
                         for (let dz=-1;dz<=1;dz++) for (let dx=-1;dx<=1;dx++) {
                             if (!dz&&!dx) continue;
@@ -2599,11 +2619,11 @@
                             if (niz<0||niz>=nz||nix<0||nix>=nx) continue;
                             if (heightMap[niz*nx+nix] !== -Infinity) cnt++;
                         }
-                        if (cnt < 2) { rm[iz*nx+ix]=1; anyRm=true; }
+                        if (cnt < 2) { rm[id]=1; anyRm=true; }
                     }
                 }
                 if (!anyRm) break;
-                for (let i=0;i<nx*nz;i++) if (rm[i]) heightMap[i]=-Infinity;
+                for (let i=0;i<nx*nz;i++) if (rm[i]) { heightMap[i]=-Infinity; coverMap[i]=0; }
             }
 
             // ④ 外側マーキング：境界から BFS で -Infinity セルを「外側」に塗る
