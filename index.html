@@ -8,7 +8,7 @@
 
   【バージョンルール】
     指示がない限り、軽微な更新でも毎回バージョンを 1 つ上げること。
-    例: v1.1413 → v1.1414
+    例: v1.1414 → v1.1415
 
   【Claude への引き継ぎメモ】
 
@@ -43,7 +43,7 @@
   - #mode-badge ── 画面上部モード表示
       _makeCancelBtn(line1,line2)で2行ボタン生成（white-space:pre-line）
       touchend+clickの両方でイベント登録済み
-      全モードのline2は「モード解除」に統一（v1.1413〜）
+      全モードのline2は「モード解除」に統一（v1.1414〜）
   - #shadowSlider ── 陰影強度スライダー（min=20,max=80,value=50）
       ヒートマップ時は「ヒートマップ色の濃度」スライダーに切替（min=0,max=100）
       濃度はuSaturation uniformで制御（0=グレー, 1=フルカラー）
@@ -71,7 +71,7 @@
   - Sutherland-Hodgmanクリッピング（境界面も正確にカット）
   - 自動閉鎖ONならsealHoles(wg,true)で蓋を焼き込み
   - 連続モード(area-loop)はsetMode('none')しない（継続）
-  - touchmove/touchendでarea-loopも正しく処理（v1.1413修正9）
+  - touchmove/touchendでarea-loopも正しく処理（v1.1414修正9）
 
   ─ 範囲外消去（ラッソ）─
   - 重心判定方式（ラッソ内の面を丸ごと消去）
@@ -80,7 +80,7 @@
 
   ─ ボクセル化 ─
   - 高さマップ（2.5D）方式、グリッドサイズ2〜30cm
-  - 法線は外向き統一（v1.1413〜）→ calcVolumeのダイバージェンス定理が正確に動く
+  - 法線は外向き統一（v1.1414〜）→ calcVolumeのダイバージェンス定理が正確に動く
     ※v1.1407〜v1.1408で法線反転（Office対応）→ calcVolumeが1/3になるバグの原因だった
   - _isVoxelizedフラグ：ボクセル確定後にcalcVolumeで_voxelVolumeをそのまま返す
   - autoResetRollKeepCamera：_isVoxelized=trueの場合_clearVolumeDisplayをスキップ
@@ -115,7 +115,7 @@
     _bakeAndCenter未実行時はgroundY > 0 → 体積が過小評価（1/4〜1/2）
     ボクセル体積がおかしい場合は「視点再調整[R]」後に再ボクセル化で修正可
 
-  v1.1408のJSクラッシュ原因（v1.1413で修正済み）：
+  v1.1408のJSクラッシュ原因（v1.1414で修正済み）：
     - const ipadUiShowBtn の二重宣言 → スクリプト全体がクラッシュ
     - クラッシュにより _bakeAndCenter() 未実行 → ボクセル体積が1/4問題の二次被害
 ================================================================================
@@ -137,7 +137,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>VolChe - Volume Checker v1.1413</title>
+    <title>VolChe - Volume Checker v1.1414</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -595,13 +595,23 @@
         /* ── OSAKI LOGO ── */
         #osaki-logo {
             position: fixed;
-            bottom: 16px;
-            right: 16px;
-            width: 120px;
-            opacity: 0.75;
+            top: 12px;
+            left: 12px;
+            width: 80px;
+            opacity: 0.85;
             z-index: 100;
             pointer-events: none;
             filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.8));
+        }
+        /* PC/iPad横は右下に */
+        @media (min-width: 431px) and (not ((max-width: 1024px) and (orientation: portrait) and (pointer: coarse))) {
+            #osaki-logo {
+                top: auto;
+                bottom: 16px;
+                left: auto;
+                right: 16px;
+                width: 120px;
+            }
         }
 
         /* ── VIEW PANEL (右上) ── */
@@ -642,7 +652,7 @@
             display: none;
             position: fixed;
             bottom: 16px;
-            left: 16px;
+            right: 16px;
             z-index: 300;
             background: var(--panel);
             border: 1px solid var(--border-bright);
@@ -896,7 +906,7 @@
 
             /* ロゴ：修正14 左上に移動 */
             #osaki-logo {
-                top: calc(60dvh + 4px) !important;
+                top: 8px !important;
                 bottom: auto !important;
                 left: 8px !important;
                 right: auto !important;
@@ -937,7 +947,7 @@
            max-width:430px かつ pointer:coarse で限定
            iPad・PC は完全無影響
 
-           ★ 高さ比率について（v1.1413〜）
+           ★ 高さ比率について（v1.1414〜）
            Safari上部（時計）・下部（アドレスバー）を除いた
            visual viewport を100%として実機計測：
              上: canvas  約56.5%
@@ -1075,8 +1085,8 @@
                 height: 100dvh !important;
             }
 
-            /* ロゴはスマホ時非表示 */
-            #osaki-logo { display: none !important; }
+            /* ロゴはiPhoneでも左上に表示 */
+            #osaki-logo { display: block !important; top: 8px !important; left: 8px !important; width: 60px !important; }
             /* ipad-ui-show-btnはiPhone時非表示 */
             #ipad-ui-show-btn { display: none !important; }
 
@@ -1113,8 +1123,8 @@
             #vert-count-inline { display: block !important; }
 
             /* drop-box縮小 */
-            .drop-box { padding: 16px 24px !important; }
-            .drop-box .icon { font-size: 28px !important; }
+            .drop-box { padding: 10px 20px !important; }
+            .drop-box .icon { font-size: 24px !important; margin-bottom: 4px !important; }
             .drop-box .main { font-size: 13px !important; }
         }
     </style>
@@ -1140,12 +1150,12 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.1413</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.1414</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB / OBJ ファイルを<br>ここにD&amp;Dしてね？</div>
-            <div class="sub" style="margin-top:10px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
-            <div style="margin-top:8px; font-size:11px; color:var(--warn); font-family:var(--mono); line-height:1.5; opacity:0.85;">⚠ OBJは読み込みに時間がかかる場合があります<br>動作しない場合はGLB変換をお試しください</div>
-            <div style="margin-top:20px; opacity:0.6; width:80px; margin-left:auto; margin-right:auto;">
+            <div class="sub" style="margin-top:8px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
+            <div style="margin-top:6px; font-size:11px; color:var(--warn); font-family:var(--mono); line-height:1.5; opacity:0.85;">⚠ OBJは読み込みに時間がかかる場合があります</div>
+            <div style="margin-top:12px; opacity:0.6; width:70px; margin-left:auto; margin-right:auto;">
                 <svg viewBox="0 0 203.7059 79.468788" xmlns="http://www.w3.org/2000/svg">
                     <g transform="translate(-3.5936313,-112.12337)">
                         <g transform="matrix(0.08197308,0,0,0.08350753,-17.592169,112.6698)">
@@ -1197,7 +1207,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.1413</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.1414</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
@@ -1214,19 +1224,21 @@
                     <button class="btn" id="undoBtn" style="white-space:nowrap; font-size:13px;">↩ 戻す (0)</button>
                 </div>
             </div>
-            <div style="display:flex; align-items:stretch; gap:6px; margin-bottom:8px;">
-                <div id="result-box" style="margin-bottom:0; flex:1;">
+            <!-- 体積表示 + 頂点/ポリゴン数 + 計算ボタン -->
+            <div style="display:flex; align-items:stretch; gap:5px; margin-bottom:6px;">
+                <div id="result-box" style="margin-bottom:0; flex:1; min-width:0;">
                     <div class="result-label">体積</div>
                     <div id="result">---</div>
                     <div class="result-unit">m³</div>
                 </div>
-                <button class="btn btn-accent" id="calcBtn" style="margin-bottom:0; flex-shrink:0; width:auto; padding:8px 12px; font-size:14px; white-space:nowrap;">▶ 計算</button>
+                <div id="vert-count-inline" style="font-family:var(--mono); font-size:10px; color:var(--text-dim); white-space:nowrap; flex-shrink:0; line-height:1.5; text-align:right; display:none; align-self:center;">頂点: --<br>ポリゴン: --</div>
+                <button class="btn btn-accent" id="calcBtn" style="margin-bottom:0; flex-shrink:0; width:auto; padding:8px 10px; font-size:14px; white-space:nowrap;">▶ 計算</button>
             </div>
             <div class="section" style="margin-top:12px;">
                 <div class="section-label">File</div>
-                <div style="display:flex; align-items:center; gap:6px;">
-                    <button class="btn btn-blue" id="exportBtn" style="margin-bottom:0; flex:1;">⬇ GLB形式で保存</button>
-                    <div id="vert-count-inline" style="font-family:var(--mono); font-size:10px; color:var(--text-dim); white-space:nowrap; flex-shrink:0; line-height:1.4; text-align:right; display:none;">頂点: --<br>ポリゴン: --</div>
+                <div style="display:flex; gap:5px;">
+                    <button class="btn btn-blue" id="exportBtn" style="margin-bottom:0; flex:1; font-size:13px;">⬇ GLB保存</button>
+                    <button class="btn" id="measureBtnEdit" style="margin-bottom:0; flex:1; font-size:12px; border-color:rgba(255,107,43,0.4); color:var(--warn);">📏 距離測定</button>
                 </div>
             </div>
         </div>
@@ -1362,16 +1374,22 @@
         <button class="btn" id="resetRoll"
             style="margin-top:6px; background:rgba(0,200,255,0.15); color:var(--accent2); border-color:rgba(0,200,255,0.6); font-size:15px; font-weight:700; letter-spacing:0.08em; padding:11px;">⊕ 視点再調整 <span style="font-size:10px; opacity:0.6;">[R]</span></button>
         <!-- 7番: L=・H=表示 -->
-        <div id="obj-size-display" style="margin-top:6px; padding:5px 8px; background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:3px; font-family:var(--mono); font-size:12px; color:var(--accent2); display:none;">
-            <span id="obj-size-l">L = --</span> &nbsp; <span id="obj-size-h">H = --</span>
+        <div id="obj-size-display" style="margin-top:6px; padding:5px 8px; background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:3px; font-family:var(--mono); font-size:12px; color:var(--accent2); display:none; line-height:1.6;">
+            <div id="obj-size-l">L = --</div>
+            <div id="obj-size-h">H = --</div>
         </div>
         <!-- 5番: ObjectColorボタン（3段階切替）-->
         <button class="btn" id="heatmapBtn"
             style="margin-top:8px; font-size:13px; border-color:rgba(255,200,0,0.4); color:#ffd700;">ObjectColor</button>
-        <!-- 5番: 陰影スライダー -->
-        <div style="margin-top:6px; padding:0 2px;">
-            <div id="shadow-slider-label" style="font-size:10px; color:var(--text-dim); font-family:var(--mono); margin-bottom:3px;">陰影強度</div>
+        <!-- 陰影スライダー -->
+        <div style="margin-top:4px; padding:0 2px;">
+            <div id="shadow-slider-label" style="font-size:10px; color:var(--text-dim); font-family:var(--mono); margin-bottom:2px;">陰影強度</div>
             <input type="range" id="shadowSlider" min="20" max="80" value="50" style="width:100%; -webkit-appearance:none; height:4px; background:linear-gradient(90deg,var(--accent) 50%,#222 50%); border-radius:2px; cursor:pointer;">
+        </div>
+        <!-- 光源角度スライダー（45度固定・水平360度回転） -->
+        <div style="margin-top:4px; padding:0 2px;">
+            <div style="font-size:10px; color:var(--text-dim); font-family:var(--mono); margin-bottom:2px;">光源角度</div>
+            <input type="range" id="lightAngleSlider" min="0" max="360" value="45" style="width:100%; -webkit-appearance:none; height:4px; background:linear-gradient(90deg,var(--accent2) 12%,#222 12%); border-radius:2px; cursor:pointer; touch-action:none;">
         </div>
         <button class="btn" id="measureBtn"
             style="margin-top:6px; font-size:13px; border-color:rgba(255,107,43,0.4); color:var(--warn);">📏 距離測定(rescale)</button>
@@ -1988,13 +2006,20 @@
                 verts += cnt;
                 polys += Math.floor(cnt / 3);
             });
-            const el = document.getElementById('vert-count');
-            if (el) el.textContent = verts === 0 ? '頂点: -- / ポリゴン: --'
+            // iPhone警告閾値: 頂点5,000,000 or ポリゴン2,000,000
+            const isIphone = window.matchMedia('(max-width:430px) and (pointer:coarse)').matches;
+            const warnColor = (isIphone && (verts >= 5000000 || polys >= 2000000)) ? 'var(--warn)' : 'var(--text-dim)';
+            const txt = verts === 0 ? '頂点: -- / ポリゴン: --'
                 : `頂点: ${verts.toLocaleString()} / ポリゴン: ${polys.toLocaleString()}`;
-            // 修正3: iPhone用インライン表示も同時更新
+            const el = document.getElementById('vert-count');
+            if (el) { el.textContent = txt; el.style.color = warnColor; }
+            // iPhone用インライン表示も同時更新
             const eli = document.getElementById('vert-count-inline');
-            if (eli) eli.innerHTML = verts === 0 ? '頂点: --<br>ポリゴン: --'
-                : `頂点: ${verts.toLocaleString()}<br>ポリゴン: ${polys.toLocaleString()}`;
+            if (eli) {
+                eli.innerHTML = verts === 0 ? '頂点: --<br>ポリゴン: --'
+                    : `頂点: ${verts.toLocaleString()}<br>ポリゴン: ${polys.toLocaleString()}`;
+                eli.style.color = warnColor;
+            }
         }
 
         // ─────────────────────────────────────────────
@@ -2482,6 +2507,8 @@
             const nx = Math.min(Math.ceil((maxX - minX) / voxelSize), 500);
             const nz = Math.min(Math.ceil((maxZ - minZ) / voxelSize), 500);
             const cellArea = voxelSize * voxelSize;
+            // グリッドが500上限に達している場合 → 全体をボクセル化できていない
+            const gridCapped = (Math.ceil((maxX - minX) / voxelSize) > 500 || Math.ceil((maxZ - minZ) / voxelSize) > 500);
 
             // ① 高さマップ作成：三角形ラスタライズ方式
             // 頂点サンプリングだと斜面の中間セルに頂点が落ちずすっぽ抜ける。
@@ -2723,7 +2750,7 @@
             }
 
             _voxelVolume = volume;
-            return { geo, count: cellCount, voxelSize, groundY };
+            return { geo, count: cellCount, voxelSize, groundY, gridCapped };
         }
 
         function removeDegenerate(geom) {
@@ -2834,7 +2861,15 @@
                         return;
                     }
 
-                    const { geo, count } = result;
+                    const { geo, count, gridCapped } = result;
+
+                    // グリッドが500上限に達している→全体をボクセル化できていない
+                    if (gridCapped) {
+                        _clearSimplifyPreviewOnly();
+                        document.getElementById('simplify-idle-btns').style.display = 'block';
+                        toast('細かすぎて全体をボクセル化\nできないよ！\nグリッドサイズを上げてね', true);
+                        return;
+                    }
                     _simplifyPreviewGeos = [geo];
                     _simplifyPreviewObj = new THREE.Group();
                     _simplifyPreviewObj.name = 'voxelPreview';
@@ -2948,7 +2983,7 @@
             document.getElementById('simplifyToggleBtn').classList.remove('active-blue');
             setTimeout(() => autoResetRollKeepCamera(), 0);
             setStatus('VOXELIZED');
-            toast(`ボクセル化完了！体積 ${_voxelVolume.toFixed(3)} m³`);
+            toast(`ボクセル化完了！▶ 計算ボタンで体積を確認してね`);
         }
 
         // ─────────────────────────────────────────────
@@ -4013,6 +4048,27 @@ if (changed) {
             applyShadowIntensity(50); // 初期値
         }
 
+        // ── 光源角度スライダー（45度仰角固定・水平360度回転）──
+        const lightAngleSlider = document.getElementById('lightAngleSlider');
+        function applyLightAngle(deg) {
+            const rad = (deg * Math.PI) / 180;
+            const elevation = Math.PI / 4; // 45度固定
+            const dist = 20;
+            dirLight.position.set(
+                Math.sin(rad) * Math.cos(elevation) * dist,
+                Math.sin(elevation) * dist,
+                Math.cos(rad) * Math.cos(elevation) * dist
+            );
+            if (lightAngleSlider) {
+                const pct = Math.round((deg / 360) * 100);
+                lightAngleSlider.style.background = `linear-gradient(90deg, var(--accent2) ${pct}%, #222 ${pct}%)`;
+            }
+        }
+        if (lightAngleSlider) {
+            lightAngleSlider.oninput = () => applyLightAngle(parseInt(lightAngleSlider.value));
+            applyLightAngle(45); // 初期値
+        }
+
         // ── 1番: areaDel 1回/2回押しで1回消去/連続消去切替 ──
         document.getElementById('singleDel').onclick = () => setMode(mode === 'single' ? 'none' : 'single');
         document.getElementById('areaDel').onclick = () => {
@@ -4188,6 +4244,9 @@ if (changed) {
         // 距離調整
         // 距離測定はView側のボタン or キーボードショートカットで起動
         document.getElementById('measureBtn').onclick = () => setMode(mode === 'measure' ? 'none' : 'measure');
+        // iPhone Edit側の距離測定ボタン（measureBtnと同じ動作）
+        const measureBtnEdit = document.getElementById('measureBtnEdit');
+        if (measureBtnEdit) measureBtnEdit.onclick = () => setMode(mode === 'measure' ? 'none' : 'measure');
         document.getElementById('applyScaleBtn').onclick = () => {
             const raw = parseFloat(document.getElementById('dist-raw').textContent);
             const real = parseFloat(document.getElementById('dist-real').value);
