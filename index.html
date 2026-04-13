@@ -8,13 +8,17 @@
 
   【バージョンルール】
     指示がない限り、軽微な更新でも毎回バージョンを 1 つ上げること。
-    例: v1.1409 → v1.1409
+    例: v1.1409 → v1.1410
 
   【Claude への引き継ぎメモ】
 
   ─ デバイス別レイアウト ─
   - iPhone（max-width:430px, pointer:coarse）
-      上50%=canvas、下50%=#ui（スクロール可）
+      visual viewport基準（Safari時計・アドレスバー除外）で：
+        上: canvas  約56.5%（flex:1 1 0 で余白を吸収、min-height:44dvh）
+        下: UIパネル 約43.5%（flex:0 0 auto、min-height:43.5dvh、max-height:56dvh）
+      UIがスクロールする場合はUI側を優先し、余った高さはcanvasが吸収
+      他スマートフォン: UIサイズ維持、canvas側が拡張
       #view-panelはcanvas右上に折りたたみ式（▼トグルのみ、OFFボタンは非表示）
       Edit再表示ボタンは右下「Edit」
       btn-gridは3列（#ui .btn-grid { grid-template-columns:1fr 1fr 1fr }）
@@ -92,6 +96,25 @@
   ─ 未解決・今後の検討 ─
   - OBJ読み込み時のiOSメモリ問題（大ファイルで落ちる場合あり）
   - OBJ読み込み前にボクセル化して軽量化する案（未実装）
+
+  ─ 体積計算アーキテクチャ（重要） ─
+  ※ v1.1406 は体積計算が正しいと思われる基準バージョン。
+
+  ファイルロード時の正規化フロー：
+    load() → doFinish() → autoResetRoll() → _bakeAndCenter()
+    └→ 土山の最下点を Y=0 にシフト（minY=0）
+
+  通常体積計算（calcVolume）：
+    ダイバージェンス定理 / sealHolesで底面を閉じてから積分
+
+  ボクセル体積計算（_buildVoxelGeoFromGeos）：
+    groundY = min(heightMap) → _bakeAndCenter後はgroundY≈0 → 正確
+    _bakeAndCenter未実行時はgroundY > 0 → 体積が過小評価（1/4〜1/2）
+    ボクセル体積がおかしい場合は「視点再調整[R]」後に再ボクセル化で修正可
+
+  v1.1408のJSクラッシュ原因（v1.1409で修正済み）：
+    - const ipadUiShowBtn の二重宣言 → スクリプト全体がクラッシュ
+    - クラッシュにより _bakeAndCenter() 未実行 → ボクセル体積が1/4問題の二次被害
 ================================================================================
 -->
 
@@ -600,9 +623,6 @@
         }
 
 
-        /* iPad縦持ち専用ボタン：デフォルト非表示 */
-        #ipad-ui-show-btn { display: none; }
-
         #select-box {
             border: 2px solid var(--accent2);
             background: rgba(0, 200, 255, 0.15);
@@ -610,6 +630,29 @@
             pointer-events: none;
             display: none;
             z-index: 200;
+        }
+
+        /* ── iPad縦持ち用復帰ボタン（デフォルト非表示・全環境共通） ── */
+        #ipad-ui-show-btn {
+            display: none;
+            position: fixed;
+            bottom: 16px;
+            left: 16px;
+            z-index: 300;
+            background: var(--panel);
+            border: 1px solid var(--border-bright);
+            border-radius: 3px;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-family: var(--mono);
+            color: var(--accent);
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 16px rgba(57,255,143,0.2);
+            touch-action: manipulation;
+            letter-spacing: 0.08em;
+            gap: 6px;
         }
 
         /* ── HAMBURGER BUTTONS (スマホ用) ── */
@@ -767,7 +810,7 @@
             /* select-boxやdrop-overlayなどのfixed要素はgridに影響しない */
             #select-box, #drop-overlay, #mode-badge, #toast,
             #osaki-logo, #ui-show-btn, #view-show-btn,
-            #panel-overlay {
+            #panel-overlay, #ipad-ui-show-btn {
                 grid-area: unset !important;
             }
 
@@ -873,27 +916,6 @@
             body.ipad-ui-hidden #ipad-ui-show-btn {
                 display: flex !important;
             }
-            #ipad-ui-show-btn {
-                display: none;
-                position: fixed;
-                bottom: 16px;
-                left: 16px;
-                z-index: 300;
-                background: var(--panel);
-                border: 1px solid var(--border-bright);
-                border-radius: 3px;
-                padding: 6px 12px;
-                font-size: 12px;
-                font-family: var(--mono);
-                color: var(--accent);
-                cursor: pointer;
-                align-items: center;
-                justify-content: center;
-                box-shadow: 0 0 16px rgba(57,255,143,0.2);
-                touch-action: manipulation;
-                letter-spacing: 0.08em;
-                gap: 6px;
-            }
 
             /* ダブルタップズーム防止 */
             body, canvas, #ui, #view-panel {
@@ -909,6 +931,16 @@
            スマホ専用レイアウト（iPhone縦持ち限定）
            max-width:430px かつ pointer:coarse で限定
            iPad・PC は完全無影響
+
+           ★ 高さ比率について（v1.1409〜）
+           Safari上部（時計）・下部（アドレスバー）を除いた
+           visual viewport を100%として実機計測：
+             上: canvas  約56.5%
+             下: UIパネル 約43.5%
+           UIがスクロールする場合はUI側を優先して拡張し、
+           余った縦方向はcanvas側が伸びる（flex:1 1 0）。
+           他スマートフォンもUIサイズは維持し、
+           canvasが余白を吸収する。
         ══════════════════════════════════════════════ */
         @media (max-width: 430px) and (pointer: coarse) {
 
@@ -920,15 +952,16 @@
                 overflow: hidden !important;
             }
 
-            /* Three.jsのcanvas（JSでbody末尾に追加）を上半分に */
-            /* order:-1 で #ui より前（上）に表示 */
-            /* ★ lasso-canvasは除外（fixed配置を維持） */
+            /* Three.jsのcanvas: 基準端末(iPhone 16e)で約56.5%
+               flex:1 1 0 で余白をcanvasが吸収（他機種対応）
+               ★ lasso-canvasは除外（fixed配置を維持） */
             body > canvas:not(#lasso-canvas) {
                 position: relative !important;
                 order: -1 !important;
-                flex: 0 0 50dvh !important;
+                flex: 1 1 0 !important;
+                min-height: 44dvh !important;
                 width: 100% !important;
-                height: 50dvh !important;
+                height: auto !important;
                 top: auto !important; left: auto !important;
             }
 
@@ -941,14 +974,18 @@
                 height: auto !important;
             }
 
-            /* 左パネル(#ui)を下半分のスクロールエリアに */
+            /* 左パネル(#ui): UIサイズを優先（43.5%相当を下限に確保）
+               コンテンツが収まる場合はそのサイズで止まる（flex: 0 0 auto）
+               スクロールが発生する場合は flex: 0 0 43.5dvh で下限固定 */
             #ui {
                 position: relative !important;
                 order: 1 !important;
                 top: auto !important; left: auto !important;
                 width: 100% !important;
                 height: auto !important;
-                flex: 1 1 0 !important;
+                flex: 0 0 auto !important;
+                min-height: 43.5dvh !important;
+                max-height: 56dvh !important;
                 overflow-y: auto !important;
                 -webkit-overflow-scrolling: touch !important;
                 overscroll-behavior: contain !important;
@@ -967,7 +1004,7 @@
                 top: 4px !important;
                 right: 4px !important;
                 width: 140px !important;
-                max-height: 48dvh !important;
+                max-height: 52dvh !important;
                 overflow-y: auto !important;
                 transform: none !important;
                 transition: none !important;
@@ -1006,7 +1043,7 @@
 
             /* toast を上半分下部に */
             #toast {
-                bottom: calc(50dvh + 4px) !important;
+                bottom: calc(43.5dvh + 4px) !important;
                 top: auto !important;
                 font-size: 11px !important;
                 padding: 5px 10px !important;
@@ -1027,12 +1064,16 @@
 
             /* UI非表示時はcanvasを全画面に */
             body.ui-hidden > canvas:not(#lasso-canvas) {
-                flex: 0 0 100dvh !important;
+                flex: 1 1 0 !important;
+                min-height: 0 !important;
+                max-height: none !important;
                 height: 100dvh !important;
             }
 
             /* ロゴはスマホ時非表示 */
             #osaki-logo { display: none !important; }
+            /* ipad-ui-show-btnはiPhone時非表示 */
+            #ipad-ui-show-btn { display: none !important; }
 
             /* 4番: iPhoneのEdit再表示ボタンは右下に */
             #ui-show-btn {
@@ -1224,7 +1265,7 @@
             <!-- 範囲外消去 -->
             <div id="lasso-ui" style="display:none;">
                 <div class="section-label">範囲外消去</div>
-                <div style="font-size:12px; color:var(--text-dim); font-family:var(--mono); margin-bottom:8px; line-height:1.6;">囲んだ範囲の<b style="color:var(--warn);">外側</b>を消去<br>指でなぞってラインを描いてね</div>
+                <div style="font-size:12px; color:var(--text-dim); font-family:var(--mono); margin-bottom:8px; line-height:1.6;">囲んだ範囲の<b style="color:var(--warn);">外側</b>を<b style="color:var(--warn);">大雑把</b>に消去<br>マウスや指で範囲を描いてね</div>
                 <div style="font-size:11px; color:var(--warn); font-family:var(--mono); margin-bottom:10px; padding:6px 8px; border:1px solid rgba(255,107,43,0.3); border-radius:3px; background:rgba(255,107,43,0.07); line-height:1.5;">⚠ 底面があると残る場合があります</div>
                 <button class="btn" id="lassoExecBtn" style="background:var(--warn); color:#000; border-color:var(--warn); font-weight:900; font-size:16px; margin-bottom:6px;">⚡ 消去実行</button>
                 <button class="btn" id="lassoClearBtn" style="font-size:13px;">✕ 描き直し</button>
@@ -1368,10 +1409,14 @@
         renderer.shadowMap.enabled = true;
         document.body.appendChild(renderer.domElement);
 
-        scene.add(new THREE.AmbientLight(0xffffff, 1.5));
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
-        dirLight.position.set(10, 20, 10);
+        scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.4);
+        dirLight.position.set(15, 10, 12);  // より斜めに（Y低め・XZ大きめ）
         scene.add(dirLight);
+        // 副光源（逆側・弱め）で凹凸の影を補強
+        const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.35);
+        dirLight2.position.set(-8, 6, -10);
+        scene.add(dirLight2);
 
         const modelGroup = new THREE.Group();
         scene.add(modelGroup);
@@ -1905,9 +1950,10 @@
                 targetMeshes[i].geometry.dispose();
                 targetMeshes[i].geometry = geom;
             });
+            _isVoxelized = false;  // undo後はボクセル化フラグをリセット
             updateUndoBtn();
             updateVertCount();
-            clearWireframe(); // undoしたらエッジ表示をリセット
+            clearWireframe();
             setStatus('UNDO');
             toast(`元に戻したよ（残り ${history.length} 回）`);
         }
@@ -2178,6 +2224,7 @@
 
             while (modelGroup.children.length > 0) modelGroup.remove(modelGroup.children[0]);
             targetMeshes = []; history = [];
+            _isVoxelized = false;  // 新規ロード時はボクセル化フラグをリセット
             updateUndoBtn(); clearMeasure(); setMode('none');
             clearWireframe();
             resetHeatmap();
@@ -2358,6 +2405,7 @@
         let _simplifyPreviewGeos = null;  // プレビュー中のボクセルジオメトリ
         let _simplifyPreviewObj  = null;  // シーン上のプレビュー表示オブジェクト
         let _voxelVolume = 0;             // プレビュー時に計算した体積（m³）
+        let _isVoxelized = false;         // ボクセル化確定済みフラグ（calcVolumeでsealHolesをスキップ）
 
         // スライダー値 → ボクセルサイズ（メートル）
         // スライダー 2～30 → 2cm～30cm（固定値）
@@ -2460,13 +2508,14 @@
                 }
             });
 
-            // ② 地盤面 = heightMapの絶対最小値
+            // ② 地盤面 = heightMapの絶対最小値（Erosion前に確定）
             // 異常に低い点があれば視覚的にすぐわかる→ユーザーが個別消去で対処できる
             const cellYs = [];
             for (let i = 0; i < nx * nz; i++) {
                 if (heightMap[i] !== -Infinity) cellYs.push(heightMap[i]);
             }
             cellYs.sort((a, b) => a - b);
+            // groundYはErosion前に確定（ロード時_bakeAndCenter済みでgroundY≈0が前提）
             const groundY = cellYs[0];
 
             // ③ ゴーストセル除去（スパースメッシュの孤立頂点による幽霊ボクセル防止）
@@ -2696,7 +2745,7 @@
 
             const voxelSize = _getVoxelSize();
             setStatus('VOXELIZING...');
-            toast('穴を閉じて高さマップ計算中... しばらく待ってね');
+            toast('高さマップ計算中... しばらく待ってね');
 
             // UIを計算中状態に
             document.getElementById('simplify-idle-btns').style.display = 'none';
@@ -2707,6 +2756,7 @@
                     // ① ワールド座標に変換（sealHolesは不要：高さマップ方式は底面データ不要）
                     // LiDARデータは下がスカスカでも、全頂点Y値の投票で計算可能。
                     // sealHolesは大きな底面開口部で失敗する→ボクセル化から完全切り離し。
+                    // ※ ロード時にautoResetRoll→_bakeAndCenterでY=0シフト済みが前提
                     modelGroup.updateMatrixWorld(true);
                     const worldGeos = [];
                     targetMeshes.forEach(m => {
@@ -2818,8 +2868,9 @@
 
             if (_simplifyPreviewObj) { scene.remove(_simplifyPreviewObj); _simplifyPreviewObj = null; }
             _simplifyPreviewGeos = null;
+            _isVoxelized = true;  // ボクセル化確定：calcVolumeでsealHolesをスキップ
 
-            // 体積表示を即更新
+            // 体積表示を即更新（_voxelVolumeはボクセル高さマップ方式の値）
             document.getElementById('result').textContent = _voxelVolume.toFixed(4);
             clearWireframe();
 
@@ -2892,6 +2943,15 @@
         // ─────────────────────────────────────────────
         function calcVolume() {
             if (targetMeshes.length === 0) { toast('先にファイルを読み込んでね', true); return; }
+
+            // ── ボクセル化済みの場合はsealHolesをスキップして_voxelVolumeを使用 ──
+            // ボクセルジオメトリは内部面が多く、sealHolesが誤った穴検出をするため
+            if (_isVoxelized && _voxelVolume > 0) {
+                const resultEl = document.getElementById('result');
+                resultEl.textContent = _voxelVolume.toFixed(3);
+                toast(`体積: ${_voxelVolume.toFixed(3)} m³`);
+                return;
+            }
 
             // ── 計算中表示（即座に反映させるためsetTimeoutで1フレーム後に計算開始）
             const resultEl = document.getElementById('result');
@@ -4019,6 +4079,17 @@ if (changed) {
             uiHideBtn.style.display = (mode !== 'none') ? 'none' : '';
         }
 
+        // 修正11: iPad縦持ち用 復帰ボタン
+        const ipadUiShowBtn = document.getElementById('ipad-ui-show-btn');
+        if (ipadUiShowBtn) {
+            const _ipadShowUI = () => {
+                document.body.classList.remove('ipad-ui-hidden');
+                setTimeout(onResize, 50);
+            };
+            ipadUiShowBtn.addEventListener('click', _ipadShowUI);
+            ipadUiShowBtn.addEventListener('touchend', (e) => { e.preventDefault(); _ipadShowUI(); }, { passive: false });
+        }
+
         // ── VIEW パネル 非表示/再表示 ──
         const viewHideBtn = document.getElementById('view-hide-btn');
         const viewShowBtn = document.getElementById('view-show-btn');
@@ -4037,20 +4108,7 @@ if (changed) {
             });
         }
 
-        // 修正11・12: iPad縦持ち用 Edit+View 一括ON/OFF
-        const ipadUiShowBtn = document.getElementById('ipad-ui-show-btn');
-
-        if (ipadUiShowBtn) {
-            ipadUiShowBtn.addEventListener('click', () => {
-                document.body.classList.remove('ipad-ui-hidden');
-                setTimeout(onResize, 50);
-            });
-            ipadUiShowBtn.addEventListener('touchend', (e) => {
-                e.preventDefault();
-                document.body.classList.remove('ipad-ui-hidden');
-                setTimeout(onResize, 50);
-            }, { passive: false });
-        }
+        // 修正11: iPad縦持ち用 復帰ボタン（上部で定義済み）
 
         // 視点ボタン
         document.getElementById('view-top').onclick = () => setCam('top');
@@ -4193,15 +4251,11 @@ if (changed) {
         // スマホでlayout確定後に再計算
         setTimeout(onResize, 100);
 
-        // ── Safari ピンチズーム防止（修正15強化版）──
+        // ── Safari ピンチズーム防止（修正15）──
         // gesturestart/gesturechange はSafari独自。pageズームを防いでThree.jsに渡す
         document.addEventListener('gesturestart',  e => e.preventDefault(), { passive: false });
         document.addEventListener('gesturechange', e => e.preventDefault(), { passive: false });
         document.addEventListener('gestureend',    e => e.preventDefault(), { passive: false });
-        // touchstart 2本指でもズーム開始を防止
-        document.addEventListener('touchstart', e => {
-            if (e.touches.length > 1) e.preventDefault();
-        }, { passive: false });
         // touchmove 2本指も防止（OrbitControlsが処理するので問題なし）
         document.addEventListener('touchmove', e => {
             if (e.touches.length > 1) e.preventDefault();
