@@ -8,7 +8,7 @@
 
   【バージョンルール】
     指示がない限り、軽微な更新でも毎回バージョンを 1 つ上げること。
-    例: v1.1507 → v1.1507
+    例: v1.1509 → v1.1509
 
   【Claude への引き継ぎメモ】
 
@@ -85,9 +85,9 @@
   - _isVoxelizedフラグ：ボクセル確定後にcalcVolumeで_voxelVolumeをそのまま返す
   - autoResetRollKeepCamera：_isVoxelized=trueの場合_clearVolumeDisplayをスキップ
   - 外側セル判定：グリッド境界からのBFS flood-fill（現役）→外側=OUTSIDE, 内側穴=INSIDE_HOLE
-  - sealHolesはボクセル計算から完全切り離し済み
+  - sealHolesはボクセル確定時に事前実行（v1.1509～）→カルデラ穴をボクセル化前に閉じる
 
-  ─ sealHoles v1.1507 ─
+  ─ sealHoles v1.1509 ─
   - gapThreshold（BBox最大辺の0.2%）以下のエッジは微細ギャップとして無視
   - findLoopsにgapThresholdを渡し、greedy chain方式でループ抽出
   - 底面ループ（最低Y付近＋水平度高＋最大XZ面積）はY=minYの水平平面キャップ
@@ -139,7 +139,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>VolChe - Volume Checker v1.1507</title>
+    <title>VolChe - Volume Checker v1.1509</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -1152,7 +1152,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.1507</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.1509</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB / OBJ ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:8px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -1209,7 +1209,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.1507</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.1509</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
@@ -1589,7 +1589,7 @@
 
 
         // ─────────────────────────────────────────────────────────────────
-        // findLoops v1.1507: 隣接数1頂点の近接結合＋隣接数2限定チェーン方式
+        // findLoops v1.1509: 隣接数1頂点の近接結合＋隣接数2限定チェーン方式
         //   隣接数1（片側エッジのみ）の頂点を近接距離でペアリングして
         //   強制的にループを閉じる。LiDAR由来の不完全メッシュ対応。
         //   gapThreshold以下の短いエッジは微細ギャップとして除外。
@@ -1720,7 +1720,7 @@
         }
 
         // ─────────────────────────────────────────────────────────────────
-        // sealHoles v1.1507
+        // sealHoles v1.1509
         //   改善点:
         //   1. gapThreshold（BBox最大辺の0.2%）以下のエッジは微細ギャップとして無視
         //   2. findLoopsにgapThresholdを渡してループ抽出精度向上
@@ -1871,7 +1871,8 @@
             if (!silent) updateVisualCap(patchGeo);
 
             try {
-                return BufferGeometryUtils.mergeGeometries([tempGeo, patchGeo]);
+                const merged = BufferGeometryUtils.mergeGeometries([tempGeo, patchGeo]);
+                return (merged && merged.attributes && merged.attributes.position) ? merged : geo;
             } catch (e) {
                 return geo;
             }
@@ -2992,8 +2993,19 @@
                         worldGeos.push(wGeo);
                     });
 
-                    // ② 高さマップ計算（穴あきメッシュでもそのまま動く）
-                    const result = _buildVoxelGeoFromGeos(worldGeos, voxelSize);
+                    // ② ボクセル化前にsealHolesで穴を閉じる（v1.1509～）
+                    // 頂点・カルデラ穴をボクセル化前に塞ぐことでカルデラ生成を防ぐ
+                    // 底面の大開口部はsealHoles v1.1500以降で別処理済みなので安全
+                    const sealedGeos = worldGeos.map(wg => {
+                        try {
+                            const sealed = sealHoles(wg, true);
+                            // sealHolesがnull/undefinedを返した場合は元のジオメトリを使う
+                            return (sealed && sealed.attributes && sealed.attributes.position) ? sealed : wg;
+                        } catch(e) { return wg; }
+                    });
+
+                    // ③ 高さマップ計算
+                    const result = _buildVoxelGeoFromGeos(sealedGeos, voxelSize);
                     if (!result) {
                         setStatus('ERROR');
                         document.getElementById('simplify-idle-btns').style.display = 'block';
