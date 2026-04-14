@@ -8,7 +8,7 @@
 
   【バージョンルール】
     指示がない限り、軽微な更新でも毎回バージョンを 1 つ上げること。
-    例: v1.1419 → v1.1419
+    例: v1.1507 → v1.1507
 
   【Claude への引き継ぎメモ】
 
@@ -87,8 +87,11 @@
   - 外側セル判定：グリッド境界からのBFS flood-fill（現役）→外側=OUTSIDE, 内側穴=INSIDE_HOLE
   - sealHolesはボクセル計算から完全切り離し済み
 
-  ─ sealHoles ─
-  - ファン三角形方式（大開口部で誤差あり、現場許容範囲）
+  ─ sealHoles v1.1507 ─
+  - gapThreshold（BBox最大辺の0.2%）以下のエッジは微細ギャップとして無視
+  - findLoopsにgapThresholdを渡し、greedy chain方式でループ抽出
+  - 底面ループ（最低Y付近＋水平度高＋最大XZ面積）はY=minYの水平平面キャップ
+  - 頂点・斜面の穴はBBox中心へのファン三角形キャップ
   - silent=true でビジュアルスキップ、戻り値をgeometryに焼き込む
 
   ─ L= H= 表示 ─
@@ -136,7 +139,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>VolChe - Volume Checker v1.1419</title>
+    <title>VolChe - Volume Checker v1.1507</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -1149,7 +1152,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.1419</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.1507</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB / OBJ ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:8px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -1206,7 +1209,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.1419</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.1507</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
@@ -1585,60 +1588,116 @@
         }
 
 
-        function findLoops(edges) {
-            const adj = new Map();
-            edges.forEach(([p1, p2]) => {
+        // ─────────────────────────────────────────────────────────────────
+        // findLoops v1.1507: 隣接数1頂点の近接結合＋隣接数2限定チェーン方式
+        //   隣接数1（片側エッジのみ）の頂点を近接距離でペアリングして
+        //   強制的にループを閉じる。LiDAR由来の不完全メッシュ対応。
+        //   gapThreshold以下の短いエッジは微細ギャップとして除外。
+        // ─────────────────────────────────────────────────────────────────
+        function findLoops(edges, gapThreshold = 0) {
+            // ── Step1: 微細ギャップ除外 ──
+            const validEdges = gapThreshold > 0
+                ? edges.filter(([p1, p2]) => {
+                    const dx = p1[0]-p2[0], dy = p1[1]-p2[1], dz = p1[2]-p2[2];
+                    return Math.sqrt(dx*dx + dy*dy + dz*dz) > gapThreshold;
+                })
+                : edges;
+            if (validEdges.length === 0) return [];
+
+            // ── Step2: 隣接マップ構築 ──
+            const ptMap = new Map();
+            const adjMap = new Map();
+            validEdges.forEach(([p1, p2]) => {
                 const k1 = p1.join(','), k2 = p2.join(',');
-                if (!adj.has(k1)) adj.set(k1, []);
-                if (!adj.has(k2)) adj.set(k2, []);
-                adj.get(k1).push(p2); adj.get(k2).push(p1);
-            });
-            const loops = [], visited = new Set();
-            adj.forEach((_, startKey) => {
-                if (visited.has(startKey)) return;
-                const loop = []; let curr = startKey.split(',').map(Number);
-                while (curr) {
-                    const ck = curr.join(','); if (visited.has(ck)) break;
-                    visited.add(ck); loop.push(curr);
-                    curr = adj.get(ck).find(n => !visited.has(n.join(','))) || null;
-                }
-                if (loop.length > 2) loops.push(loop);
+                if (!ptMap.has(k1)) ptMap.set(k1, p1);
+                if (!ptMap.has(k2)) ptMap.set(k2, p2);
+                if (!adjMap.has(k1)) adjMap.set(k1, new Set());
+                if (!adjMap.has(k2)) adjMap.set(k2, new Set());
+                adjMap.get(k1).add(k2);
+                adjMap.get(k2).add(k1);
             });
 
-            // 断片ループのマージ：同一平面（法線・距離が近い）のループを統合
-            // 球体カットで発生する分岐点起因の断片ループに対処
-            const merged = [];
-            const usedIdx = new Set();
-            for (let i = 0; i < loops.length; i++) {
-                if (usedIdx.has(i)) continue;
-                let combined = loops[i].slice();
-                // 法線推定（3点で計算）
-                const getNormal = (loop) => {
-                    if (loop.length < 3) return null;
-                    const a = new THREE.Vector3(...loop[0]);
-                    const b = new THREE.Vector3(...loop[Math.floor(loop.length/3)]);
-                    const c = new THREE.Vector3(...loop[Math.floor(loop.length*2/3)]);
-                    return b.sub(a).cross(c.clone().sub(a)).normalize();
-                };
-                const nA = getNormal(loops[i]);
-                if (nA) {
-                    const dA = nA.dot(new THREE.Vector3(...loops[i][0]));
-                    for (let j = i + 1; j < loops.length; j++) {
-                        if (usedIdx.has(j)) continue;
-                        const nB = getNormal(loops[j]);
-                        if (!nB) continue;
-                        const dB = nB.dot(new THREE.Vector3(...loops[j][0]));
-                        // 法線がほぼ平行かつ同一平面上なら同じ穴の断片とみなす
-                        if (Math.abs(Math.abs(nA.dot(nB)) - 1) < 0.05 && Math.abs(dA - dB) < 0.05) {
-                            combined = combined.concat(loops[j]);
-                            usedIdx.add(j);
-                        }
+            // ── Step2.5: 隣接数1の頂点を近接ペアリングで結合 ──
+            // LiDARデータや穴あけ加工で発生する「片側エッジのみ」頂点を
+            // 最近傍の同種頂点と結合してループを閉じる
+            const deg1Keys = [...adjMap.entries()]
+                .filter(([, nb]) => nb.size === 1)
+                .map(([k]) => k);
+
+            if (deg1Keys.length >= 2) {
+                // maxExtentを使った結合閾値（gapThresholdの50倍まで許容）
+                const stitchThreshold = gapThreshold > 0 ? gapThreshold * 50 : Infinity;
+                const paired = new Set();
+
+                deg1Keys.forEach(k1 => {
+                    if (paired.has(k1)) return;
+                    const p1 = ptMap.get(k1);
+                    let bestKey = null, bestDist = stitchThreshold;
+
+                    deg1Keys.forEach(k2 => {
+                        if (k2 === k1 || paired.has(k2)) return;
+                        const p2 = ptMap.get(k2);
+                        const dx = p1[0]-p2[0], dy = p1[1]-p2[1], dz = p1[2]-p2[2];
+                        const d = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                        if (d < bestDist) { bestDist = d; bestKey = k2; }
+                    });
+
+                    if (bestKey) {
+                        adjMap.get(k1).add(bestKey);
+                        adjMap.get(bestKey).add(k1);
+                        paired.add(k1);
+                        paired.add(bestKey);
+                        console.log(`[findLoops] stitch: ${bestDist.toFixed(5)}`);
                     }
-                }
-                usedIdx.add(i);
-                merged.push(combined);
+                });
             }
-            return merged.length > 0 ? merged : loops;
+
+            // ── Step3: 隣接数=2の頂点だけ残す（収束まで繰り返し） ──
+            let changed = true;
+            while (changed) {
+                changed = false;
+                adjMap.forEach((neighbors, key) => {
+                    if (neighbors.size !== 2) {
+                        neighbors.forEach(nb => {
+                            if (adjMap.has(nb)) adjMap.get(nb).delete(key);
+                        });
+                        adjMap.delete(key);
+                        changed = true;
+                    }
+                });
+            }
+
+            if (adjMap.size === 0) return [];
+
+            // ── Step4: 隣接数=2の頂点群からループ抽出 ──
+            const visited = new Set();
+            const loops = [];
+
+            adjMap.forEach((_, startKey) => {
+                if (visited.has(startKey)) return;
+
+                const loop = [];
+                let curr = startKey;
+                let prev = null;
+
+                for (let safety = 0; safety < 100000; safety++) {
+                    if (visited.has(curr)) {
+                        if (curr === startKey && loop.length > 2) {
+                            loops.push(loop.map(k => ptMap.get(k)));
+                        }
+                        break;
+                    }
+                    visited.add(curr);
+                    loop.push(curr);
+
+                    const neighbors = [...adjMap.get(curr)];
+                    const next = neighbors.find(nb => nb !== prev) || neighbors[0];
+                    prev = curr;
+                    curr = next;
+                }
+            });
+
+            return loops;
         }
 
         function showSealWireframe(patchGeo) {
@@ -1660,17 +1719,20 @@
             scene.add(wire);
         }
 
-        // ─────────────────────────────────────────────
-        // 境界辺検出 → ループ抽出 → ファン三角形でキャップ
+        // ─────────────────────────────────────────────────────────────────
+        // sealHoles v1.1507
+        //   改善点:
+        //   1. gapThreshold（BBox最大辺の0.2%）以下のエッジは微細ギャップとして無視
+        //   2. findLoopsにgapThresholdを渡してループ抽出精度向上
+        //   3. 底面ループ（最低Y付近＋最大面積）は水平平面キャップで別処理
+        //   4. それ以外の穴（頂点・斜面）はファン三角形でキャップ
         // silent=true: ビジュアル表示スキップ、戻り値を呼び元で焼き込む
-        // ─────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────
         function sealHoles(geo, silent = false) {
             const tempGeo = geo.toNonIndexed();
             const posAttr = tempGeo.attributes.position;
 
-            // BBox（精度決定）とメッシュ重心（キャップ法線方向判定）を同時に計算
-            // ★ maxExtent（メッシュ寸法）で精度決定：resetRoll前後で変わらない
-            // ★ meshCenter：キャップの外向き法線を保証するために使用
+            // ── BBox・重心計算 ──
             let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity,minZ=Infinity,maxZ=-Infinity;
             let sumX=0, sumY=0, sumZ=0, vCnt=0;
             for (let i = 0; i < posAttr.count; i++) {
@@ -1684,63 +1746,121 @@
             const maxExtent = Math.max(maxX-minX, maxY-minY, maxZ-minZ);
             const decimals = Math.max(2, Math.min(6, 5 - Math.floor(Math.log10(Math.max(maxExtent, 0.001)))));
             const fmt = v => v.toFixed(decimals);
-            // メッシュ重心（凸形状であれば内部点になる）
             const meshCenter = vCnt > 0
                 ? new THREE.Vector3(sumX/vCnt, sumY/vCnt, sumZ/vCnt)
                 : new THREE.Vector3();
 
+            // ── gapThreshold: BBox最大辺の0.2% ──
+            // LiDARデータの微細ギャップ（スキャンノイズ由来）を無視するための閾値
+            const gapThreshold = maxExtent * 0.002;
+
+            // ── 境界エッジ収集（toFixed文字列でキー化） ──
             const edgeMap = new Map();
             for (let i = 0; i < posAttr.count; i += 3) {
                 const v = [
                     `${fmt(posAttr.getX(i))},${fmt(posAttr.getY(i))},${fmt(posAttr.getZ(i))}`,
-                    `${fmt(posAttr.getX(i + 1))},${fmt(posAttr.getY(i + 1))},${fmt(posAttr.getZ(i + 1))}`,
-                    `${fmt(posAttr.getX(i + 2))},${fmt(posAttr.getY(i + 2))},${fmt(posAttr.getZ(i + 2))}`
+                    `${fmt(posAttr.getX(i+1))},${fmt(posAttr.getY(i+1))},${fmt(posAttr.getZ(i+1))}`,
+                    `${fmt(posAttr.getX(i+2))},${fmt(posAttr.getY(i+2))},${fmt(posAttr.getZ(i+2))}`
                 ];
-                [[v[0], v[1]], [v[1], v[2]], [v[2], v[0]]].forEach(e => {
-                    const key = e.sort().join('|');
-                    if (!edgeMap.has(key)) edgeMap.set(key, { count: 0, pts: e.map(s => s.split(',').map(Number)) });
+                [[v[0],v[1]],[v[1],v[2]],[v[2],v[0]]].forEach(e => {
+                    const key = [e[0],e[1]].sort().join('|');
+                    if (!edgeMap.has(key)) edgeMap.set(key, { count:0, pts: e.map(s=>s.split(',').map(Number)) });
                     edgeMap.get(key).count++;
                 });
             }
 
             const boundaries = [];
             edgeMap.forEach((val) => { if (val.count === 1) boundaries.push(val.pts); });
-            if (boundaries.length === 0) return geo;
+            // ★DEBUG
+            console.log(`[sealHoles] boundaries(境界エッジ数): ${boundaries.length}, gapThreshold: ${gapThreshold.toFixed(5)}, maxExtent: ${maxExtent.toFixed(3)}`);
+            if (boundaries.length === 0) { console.log('[sealHoles] 境界エッジなし → return'); return geo; }
 
-            const loops = findLoops(boundaries);
-            const patchPos = [];
+            // ── ループ抽出（gapThreshold渡し） ──
+            const loops = findLoops(boundaries, gapThreshold);
+            // ★DEBUG
+            console.log(`[sealHoles] loops抽出数: ${loops.length}`);
+            loops.forEach((lp, i) => {
+                const ys = lp.map(p => p[1]);
+                const avgY = ys.reduce((a,b)=>a+b,0)/ys.length;
+                console.log(`  loop[${i}] 頂点数:${lp.length}, avgY:${avgY.toFixed(4)}, minY:${Math.min(...ys).toFixed(4)}, maxY:${Math.max(...ys).toFixed(4)}`);
+            });
+            if (loops.length === 0) { console.log('[sealHoles] ループ抽出失敗 → return'); return geo; }
 
-            loops.forEach(loop => {
-                // 重心をBBox中心で計算（頂点平均より断片ループに強い）
-                // 頂点分布が不均一でも穴の中心に近い点が得られる
+            // ── 各ループのBBox面積・最低Y・水平度を計算 ──
+            const loopInfos = loops.map(loop => {
                 let lMinX=Infinity,lMaxX=-Infinity,lMinY=Infinity,lMaxY=-Infinity,lMinZ=Infinity,lMaxZ=-Infinity;
+                let lSumY=0;
                 loop.forEach(pt => {
                     if(pt[0]<lMinX)lMinX=pt[0]; if(pt[0]>lMaxX)lMaxX=pt[0];
                     if(pt[1]<lMinY)lMinY=pt[1]; if(pt[1]>lMaxY)lMaxY=pt[1];
                     if(pt[2]<lMinZ)lMinZ=pt[2]; if(pt[2]>lMaxZ)lMaxZ=pt[2];
+                    lSumY+=pt[1];
                 });
-                const cX=(lMinX+lMaxX)/2, cY=(lMinY+lMaxY)/2, cZ=(lMinZ+lMaxZ)/2;
-                const pc = new THREE.Vector3(cX, cY, cZ);
+                const xzArea = (lMaxX-lMinX) * (lMaxZ-lMinZ);
+                const yVariance = lMaxY - lMinY; // Y方向の広がり（小さいほど水平に近い）
+                const avgY = lSumY / loop.length;
+                return { loop, lMinX,lMaxX,lMinY,lMaxY,lMinZ,lMaxZ, xzArea, yVariance, avgY };
+            });
 
-                // ── キャップの外向き法線を保証 ──────────────────────────
-                // findLoops の辿り順（CW/CCW）は頂点キーの挿入順に依存し不定。
-                // 三角形(loop[0], center, loop[1])の法線を計算し、
-                // メッシュ重心方向（内向き）なら逆順にして外向きに統一する。
-                if (loop.length >= 2) {
-                    const p0 = new THREE.Vector3(loop[0][0], loop[0][1], loop[0][2]);
-                    const p1 = new THREE.Vector3(loop[1][0], loop[1][1], loop[1][2]);
-                    // 三角形(p0, center, p1)の法線 = (center-p0)×(p1-p0)
-                    const capNormal = pc.clone().sub(p0).cross(p1.clone().sub(p0));
-                    // 法線がメッシュ重心方向（内向き）なら逆順 → 外向きに
-                    if (capNormal.dot(meshCenter.clone().sub(pc)) > 0) {
-                        loop.reverse();
+            // ── 底面ループ判定 ──
+            // 条件: 最低Y付近（minYから5%以内）かつ水平度が高い（yVariance < maxExtent*0.05）
+            //       かつXZ面積が最大のもの
+            const bottomY = minY;
+            const bottomYTol = maxExtent * 0.05;
+            const bottomCandidates = loopInfos.filter(info =>
+                info.avgY <= bottomY + bottomYTol && info.yVariance < maxExtent * 0.05
+            );
+            // 面積最大のものを底面ループとして選ぶ
+            const bottomInfo = bottomCandidates.length > 0
+                ? bottomCandidates.reduce((a,b) => a.xzArea > b.xzArea ? a : b)
+                : null;
+
+            const patchPos = [];
+
+            loopInfos.forEach(info => {
+                const { loop, lMinX,lMaxX,lMinY,lMaxY,lMinZ,lMaxZ } = info;
+
+                const isBottom = bottomInfo && info === bottomInfo;
+
+                if (isBottom) {
+                    // ── 底面: Y=minYの水平平面キャップ ──
+                    // ループ頂点のYを全てminYに投影して水平面を作る
+                    const flatLoop = loop.map(pt => [pt[0], bottomY, pt[2]]);
+                    const cX=(lMinX+lMaxX)/2, cZ=(lMinZ+lMaxZ)/2;
+                    const pc = new THREE.Vector3(cX, bottomY, cZ);
+
+                    // 法線方向チェック（下向き=-Y が外向きのはず）
+                    if (flatLoop.length >= 2) {
+                        const p0 = new THREE.Vector3(flatLoop[0][0], flatLoop[0][1], flatLoop[0][2]);
+                        const p1 = new THREE.Vector3(flatLoop[1][0], flatLoop[1][1], flatLoop[1][2]);
+                        const capNormal = pc.clone().sub(p0).cross(p1.clone().sub(p0));
+                        if (capNormal.dot(meshCenter.clone().sub(pc)) > 0) {
+                            flatLoop.reverse();
+                        }
                     }
-                }
+                    for (let i = 0; i < flatLoop.length; i++) {
+                        const p1 = flatLoop[i];
+                        const p2 = flatLoop[(i+1) % flatLoop.length];
+                        patchPos.push(p1[0],p1[1],p1[2], cX,bottomY,cZ, p2[0],p2[1],p2[2]);
+                    }
+                } else {
+                    // ── 頂点・斜面の穴: BBox中心へのファン三角形 ──
+                    const cX=(lMinX+lMaxX)/2, cY=(lMinY+lMaxY)/2, cZ=(lMinZ+lMaxZ)/2;
+                    const pc = new THREE.Vector3(cX, cY, cZ);
 
-                for (let i = 0; i < loop.length; i++) {
-                    const p1 = loop[i];
-                    const p2 = loop[(i + 1) % loop.length];
-                    patchPos.push(p1[0], p1[1], p1[2], cX, cY, cZ, p2[0], p2[1], p2[2]);
+                    if (loop.length >= 2) {
+                        const p0 = new THREE.Vector3(loop[0][0], loop[0][1], loop[0][2]);
+                        const p1 = new THREE.Vector3(loop[1][0], loop[1][1], loop[1][2]);
+                        const capNormal = pc.clone().sub(p0).cross(p1.clone().sub(p0));
+                        if (capNormal.dot(meshCenter.clone().sub(pc)) > 0) {
+                            loop.reverse();
+                        }
+                    }
+                    for (let i = 0; i < loop.length; i++) {
+                        const p1 = loop[i];
+                        const p2 = loop[(i+1) % loop.length];
+                        patchPos.push(p1[0],p1[1],p1[2], cX,cY,cZ, p2[0],p2[1],p2[2]);
+                    }
                 }
             });
 
@@ -3122,7 +3242,8 @@
 
             let sealedGeo;
             try {
-                sealedGeo = sealHoles(mergedGeo);
+                // silent=false で呼ぶ → 閉じた穴を緑線でその場表示
+                sealedGeo = sealHoles(mergedGeo, false);
             } catch (e) {
                 console.warn('sealHoles failed:', e);
                 sealedGeo = mergedGeo;
