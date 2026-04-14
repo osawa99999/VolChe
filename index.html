@@ -8,7 +8,7 @@
 
   【バージョンルール】
     指示がない限り、軽微な更新でも毎回バージョンを 1 つ上げること。
-    例: v1.1416 → v1.1417
+    例: v1.1419 → v1.1419
 
   【Claude への引き継ぎメモ】
 
@@ -84,7 +84,7 @@
     ※v1.1407〜v1.1408で法線反転（Office対応）→ calcVolumeが1/3になるバグの原因だった
   - _isVoxelizedフラグ：ボクセル確定後にcalcVolumeで_voxelVolumeをそのまま返す
   - autoResetRollKeepCamera：_isVoxelized=trueの場合_clearVolumeDisplayをスキップ
-  - BFS外側判定廃止→スキャンライン内側判定（v1.319〜）
+  - 外側セル判定：グリッド境界からのBFS flood-fill（現役）→外側=OUTSIDE, 内側穴=INSIDE_HOLE
   - sealHolesはボクセル計算から完全切り離し済み
 
   ─ sealHoles ─
@@ -136,7 +136,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>VolChe - Volume Checker v1.1416</title>
+    <title>VolChe - Volume Checker v1.1419</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -1149,7 +1149,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.1416</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.1419</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB / OBJ ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:8px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -1206,7 +1206,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.1416</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.1419</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
@@ -1661,7 +1661,8 @@
         }
 
         // ─────────────────────────────────────────────
-        // 【VolChe v1.006 最終形態】V1.7ループ抽出 ＋ 垂直・水平密閉
+        // 境界辺検出 → ループ抽出 → ファン三角形でキャップ
+        // silent=true: ビジュアル表示スキップ、戻り値を呼び元で焼き込む
         // ─────────────────────────────────────────────
         function sealHoles(geo, silent = false) {
             const tempGeo = geo.toNonIndexed();
@@ -1747,7 +1748,7 @@
             patchGeo.setAttribute('position', new THREE.Float32BufferAttribute(patchPos, 3));
 
             if (!silent) showSealWireframe(patchGeo);
-            if (!silent && typeof updateVisualCap === 'function') updateVisualCap(patchGeo);
+            if (!silent) updateVisualCap(patchGeo);
 
             try {
                 return BufferGeometryUtils.mergeGeometries([tempGeo, patchGeo]);
@@ -1854,7 +1855,6 @@
 
             const cutNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(cuttingPlane.quaternion);
             const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(cutNormal, cuttingPlane.position);
-            const capY = cuttingPlane.position.y;
 
             targetMeshes.forEach(m => {
                 const mat = m.matrixWorld;
@@ -1900,14 +1900,35 @@
                         const i1 = new THREE.Vector3(), i2 = new THREE.Vector3();
                         plane.intersectLine(new THREE.Line3(a, b1), i1);
                         plane.intersectLine(new THREE.Line3(a, b2), i2);
-                        [a, i1, i2].forEach(p => { const lp = toLoc(p); newPos.push(lp.x, lp.y, lp.z); });
+                        // ★ 巻き順修正：上頂点が元の三角形の中間頂点(v[1])のとき
+                        // [a,i1,i2] では法線が反転するため i1,i2 を入れ替える。
+                        // v[0]上 → i1=intersect(a,v[1]) i2=intersect(a,v[2]) → [a,i1,i2] ✓
+                        // v[1]上 → i1=intersect(a,v[0]) i2=intersect(a,v[2]) → [a,i2,i1] ✓
+                        // v[2]上 → i1=intersect(a,v[0]) i2=intersect(a,v[1]) → [a,i1,i2] ✓
+                        const aOrigIdx = dists.findIndex(d => d >= 0);
+                        if (aOrigIdx === 1) {
+                            [a, i2, i1].forEach(p => { const lp = toLoc(p); newPos.push(lp.x, lp.y, lp.z); });
+                        } else {
+                            [a, i1, i2].forEach(p => { const lp = toLoc(p); newPos.push(lp.x, lp.y, lp.z); });
+                        }
                     } else if (above.length === 2) {
                         const a1 = above[0], a2 = above[1], b = below[0];
                         const i1 = new THREE.Vector3(), i2 = new THREE.Vector3();
                         plane.intersectLine(new THREE.Line3(a1, b), i1);
                         plane.intersectLine(new THREE.Line3(a2, b), i2);
-                        [a1, a2, i1].forEach(p => { const lp = toLoc(p); newPos.push(lp.x, lp.y, lp.z); });
-                        [a2, i2, i1].forEach(p => { const lp = toLoc(p); newPos.push(lp.x, lp.y, lp.z); });
+                        // ★ 巻き順修正：下頂点が元の三角形の中間頂点(v[1])のとき
+                        // [a1,a2,i1]+[a2,i2,i1] では両三角形の法線が反転するため修正する。
+                        // v[0]下 → a1=v[1] a2=v[2] → [a1,a2,i1]+[a2,i2,i1] ✓
+                        // v[1]下 → a1=v[0] a2=v[2] → [a1,i1,i2]+[a1,i2,a2] ✓
+                        // v[2]下 → a1=v[0] a2=v[1] → [a1,a2,i1]+[a2,i2,i1] ✓
+                        const bOrigIdx = dists.findIndex(d => d < 0);
+                        if (bOrigIdx === 1) {
+                            [a1, i1, i2].forEach(p => { const lp = toLoc(p); newPos.push(lp.x, lp.y, lp.z); });
+                            [a1, i2, a2].forEach(p => { const lp = toLoc(p); newPos.push(lp.x, lp.y, lp.z); });
+                        } else {
+                            [a1, a2, i1].forEach(p => { const lp = toLoc(p); newPos.push(lp.x, lp.y, lp.z); });
+                            [a2, i2, i1].forEach(p => { const lp = toLoc(p); newPos.push(lp.x, lp.y, lp.z); });
+                        }
                     }
                 }
 
@@ -2772,28 +2793,6 @@
 
             _voxelVolume = volume;
             return { geo, count: cellCount, voxelSize, groundY, gridCapped };
-        }
-
-        function removeDegenerate(geom) {
-            const pos = geom.attributes.position;
-            const verts = [];
-            const v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), v3 = new THREE.Vector3();
-            const e1 = new THREE.Vector3(), e2 = new THREE.Vector3();
-            for (let i = 0; i < pos.count; i += 3) {
-                v1.fromBufferAttribute(pos, i);
-                v2.fromBufferAttribute(pos, i + 1);
-                v3.fromBufferAttribute(pos, i + 2);
-                if (isNaN(v1.x) || isNaN(v2.x) || isNaN(v3.x)) continue;
-                e1.subVectors(v2, v1);
-                e2.subVectors(v3, v1);
-                // cross はe1を破壊するのでcloneしてから計算
-                if (e1.clone().cross(e2).lengthSq() < 1e-20) continue;
-                verts.push(v1.x, v1.y, v1.z, v2.x, v2.y, v2.z, v3.x, v3.y, v3.z);
-            }
-            const out = new THREE.BufferGeometry();
-            out.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
-            out.computeVertexNormals();
-            return out;
         }
 
         // ── ボクセル間引き専用 穴埋め（Ear-clipping投影方式）────────────────
