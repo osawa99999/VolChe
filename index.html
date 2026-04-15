@@ -8,7 +8,7 @@
 
   【バージョンルール】
     指示がない限り、軽微な更新でも毎回バージョンを 1 つ上げること。
-    例: v1.1509 → v1.1509
+    例: v1.1511 → v1.1512
 
   【Claude への引き継ぎメモ】
 
@@ -43,7 +43,7 @@
   - #mode-badge ── 画面上部モード表示
       _makeCancelBtn(line1,line2)で2行ボタン生成（white-space:pre-line）
       touchend+clickの両方でイベント登録済み
-      全モードのline2は「モード解除」に統一（v1.1416〜）
+      全モードのline2は「モード解除」に統一
   - #shadowSlider ── 陰影強度スライダー（min=20,max=80,value=50）
       ヒートマップ時は「ヒートマップ色の濃度」スライダーに切替（min=0,max=100）
       濃度はuSaturation uniformで制御（0=グレー, 1=フルカラー）
@@ -57,8 +57,8 @@
   - #ipad-ui-show-btn ── iPad縦持ち用UI復帰ボタン（下部固定）
 
   ─ 各モードのcontrols.enabled ─
-  - 有効: 'none'/'voxelize'/'cutter'/'measure'/'area'/'area-loop'/'single'
-  - 無効（ラッソ描画優先）: 'lasso'
+  - 有効: 'none'/'voxelize'/'cutter'/'measure'
+  - 無効: 'lasso'/'area'/'area-loop'/'single'
   - body.mode-select: lasso以外の選択系モード（cursor:crosshair）
 
   ─ ファイル読み込み（load関数）─
@@ -71,27 +71,27 @@
   - Sutherland-Hodgmanクリッピング（境界面も正確にカット）
   - 自動閉鎖ONならsealHoles(wg,true)で蓋を焼き込み
   - 連続モード(area-loop)はsetMode('none')しない（継続）
-  - touchmove/touchendでarea-loopも正しく処理（v1.1416修正9）
 
   ─ 範囲外消去（ラッソ）─
   - 重心判定方式（ラッソ内の面を丸ごと消去）
-  - 未描画時：lassoClearBtn=「描き直し」→setMode('none')
+  - 未描画時：lassoClearBtn=「解除（戻る）」→setMode('none')
   - 描画完了後：lassoClearBtn=「描き直し」
 
   ─ ボクセル化 ─
   - 高さマップ（2.5D）方式、グリッドサイズ2〜30cm
-  - 法線は外向き統一（v1.1416〜）→ calcVolumeのダイバージェンス定理が正確に動く
-    ※v1.1407〜v1.1408で法線反転（Office対応）→ calcVolumeが1/3になるバグの原因だった
+  - 法線は外向き統一 → calcVolumeのダイバージェンス定理が正確に動く
   - _isVoxelizedフラグ：ボクセル確定後にcalcVolumeで_voxelVolumeをそのまま返す
   - autoResetRollKeepCamera：_isVoxelized=trueの場合_clearVolumeDisplayをスキップ
-  - 外側セル判定：グリッド境界からのBFS flood-fill（現役）→外側=OUTSIDE, 内側穴=INSIDE_HOLE
-  - sealHolesはボクセル確定時に事前実行（v1.1509～）→カルデラ穴をボクセル化前に閉じる
+  - 外側セル判定：グリッド境界からのBFS flood-fill → 外側=OUTSIDE, 内側穴=INSIDE_HOLE
+  - sealHolesはボクセル化前に事前実行 → カルデラ穴をボクセル化前に閉じる
 
-  ─ sealHoles v1.1509 ─
+  ─ sealHoles ─
   - gapThreshold（BBox最大辺の0.2%）以下のエッジは微細ギャップとして無視
   - findLoopsにgapThresholdを渡し、greedy chain方式でループ抽出
-  - 底面ループ（最低Y付近＋水平度高＋最大XZ面積）はY=minYの水平平面キャップ
-  - 頂点・斜面の穴はBBox中心へのファン三角形キャップ
+  - 底面ループ（最低Y付近＋水平度高＋最大XZ面積）はY=minYに投影してキャップ
+  - すべてのループを 2D Ear-Clipping（ShapeUtils.triangulateShape）でキャップ
+    → 新頂点（重心点）なし、メッシュ密度非依存の決定論的三角分割
+    → Centroid-Fan方式の「幻のピラミッド」問題を解消
   - silent=true でビジュアルスキップ、戻り値をgeometryに焼き込む
 
   ─ L= H= 表示 ─
@@ -115,11 +115,7 @@
 
   ボクセル体積計算（_buildVoxelGeoFromGeos）：
     groundY = min(allY) = 全頂点の最小Y = オブジェクト実底面
-    heightMapの最小値を使うと「各セル天井Yの最小値」になり赤道面になってしまう→下半分消失バグ
-
-  v1.1408のJSクラッシュ原因（v1.1416で修正済み）：
-    - const ipadUiShowBtn の二重宣言 → スクリプト全体がクラッシュ
-    - クラッシュにより _bakeAndCenter() 未実行 → ボクセル体積が1/4問題の二次被害
+    ※ heightMapの最小値は「各セル天井Yの最小値」になり赤道面→下半分消失バグになる
 ================================================================================
 -->
 
@@ -139,7 +135,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>VolChe - Volume Checker v1.1509</title>
+    <title>VolChe - Volume Checker v1.1512</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -429,10 +425,6 @@
             display: flex;
             justify-content: space-between;
             background: rgba(0, 0, 0, 0.3);
-        }
-
-        #status-text {
-            color: var(--accent2);
         }
 
         /* ── DROP ZONE ── */
@@ -1152,7 +1144,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.1509</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.1512</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB / OBJ ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:8px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -1209,7 +1201,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.1509</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.1512</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
@@ -1463,8 +1455,6 @@
         let wireframeMeshes = []; // エッジ表示用
 
         // ─────────────────────────────────────────────
-        // ─────────────────────────────────────────────
-        // ─────────────────────────────────────────────
         // ワイヤーフレーム表示（体積計算対象の可視化）
         // ─────────────────────────────────────────────
         function updateWireframe() {
@@ -1647,7 +1637,6 @@
                         adjMap.get(bestKey).add(k1);
                         paired.add(k1);
                         paired.add(bestKey);
-                        console.log(`[findLoops] stitch: ${bestDist.toFixed(5)}`);
                     }
                 });
             }
@@ -1771,20 +1760,11 @@
 
             const boundaries = [];
             edgeMap.forEach((val) => { if (val.count === 1) boundaries.push(val.pts); });
-            // ★DEBUG
-            console.log(`[sealHoles] boundaries(境界エッジ数): ${boundaries.length}, gapThreshold: ${gapThreshold.toFixed(5)}, maxExtent: ${maxExtent.toFixed(3)}`);
-            if (boundaries.length === 0) { console.log('[sealHoles] 境界エッジなし → return'); return geo; }
+            if (boundaries.length === 0) { return geo; }
 
             // ── ループ抽出（gapThreshold渡し） ──
             const loops = findLoops(boundaries, gapThreshold);
-            // ★DEBUG
-            console.log(`[sealHoles] loops抽出数: ${loops.length}`);
-            loops.forEach((lp, i) => {
-                const ys = lp.map(p => p[1]);
-                const avgY = ys.reduce((a,b)=>a+b,0)/ys.length;
-                console.log(`  loop[${i}] 頂点数:${lp.length}, avgY:${avgY.toFixed(4)}, minY:${Math.min(...ys).toFixed(4)}, maxY:${Math.max(...ys).toFixed(4)}`);
-            });
-            if (loops.length === 0) { console.log('[sealHoles] ループ抽出失敗 → return'); return geo; }
+            if (loops.length === 0) { return geo; }
 
             // ── 各ループのBBox面積・最低Y・水平度を計算 ──
             const loopInfos = loops.map(loop => {
@@ -1815,51 +1795,76 @@
                 ? bottomCandidates.reduce((a,b) => a.xzArea > b.xzArea ? a : b)
                 : null;
 
+            // ── 2D Ear-Clipping キャップ（メッシュ密度非依存）──────────────────
+            // Newell法で平面法線算出 → 主軸投影 → ShapeUtils.triangulateShape
+            // 新頂点（重心点）を追加しないため、メッシュ密度に関係なく決定論的な面積を生成する。
+            function _earClipCap(loop3D) {
+                if (loop3D.length < 3) return [];
+                // Newell法で法線算出（凹ポリゴンにも正確）
+                let nx=0, ny=0, nz=0;
+                for (let i=0; i<loop3D.length; i++) {
+                    const c=loop3D[i], n=loop3D[(i+1)%loop3D.length];
+                    nx += (c[1]-n[1])*(c[2]+n[2]);
+                    ny += (c[2]-n[2])*(c[0]+n[0]);
+                    nz += (c[0]-n[0])*(c[1]+n[1]);
+                }
+                const nLen = Math.sqrt(nx*nx+ny*ny+nz*nz);
+                if (nLen < 1e-12) return [];
+                nx/=nLen; ny/=nLen; nz/=nLen;
+                // 法線の主成分を落として2D投影（精度最大の軸を選択）
+                const ax=Math.abs(nx), ay=Math.abs(ny), az=Math.abs(nz);
+                let ui, vi;
+                if (ax>=ay && ax>=az)      { ui=1; vi=2; }  // YZ平面
+                else if (ay>=ax && ay>=az) { ui=0; vi=2; }  // XZ平面
+                else                        { ui=0; vi=1; }  // XY平面
+                // 2D投影
+                const pts2D = loop3D.map(p => ({ x: p[ui], y: p[vi] }));
+                // 符号付き面積（ShapeUtils.triangulateShapeはCCW前提）
+                let signed = 0;
+                for (let i=0; i<pts2D.length; i++) {
+                    const a=pts2D[i], b=pts2D[(i+1)%pts2D.length];
+                    signed += a.x*b.y - b.x*a.y;
+                }
+                let orderedLoop = loop3D, orderedPts = pts2D;
+                if (signed < 0) {
+                    orderedPts  = [...pts2D].reverse();
+                    orderedLoop = [...loop3D].reverse();
+                }
+                let indices;
+                try { indices = THREE.ShapeUtils.triangulateShape(orderedPts, []); }
+                catch(e) { return []; }
+                return indices.map(([i0,i1,i2]) => [orderedLoop[i0], orderedLoop[i1], orderedLoop[i2]]);
+            }
+
             const patchPos = [];
 
             loopInfos.forEach(info => {
                 const { loop, lMinX,lMaxX,lMinY,lMaxY,lMinZ,lMaxZ } = info;
-
                 const isBottom = bottomInfo && info === bottomInfo;
 
-                if (isBottom) {
-                    // ── 底面: Y=minYの水平平面キャップ ──
-                    // ループ頂点のYを全てminYに投影して水平面を作る
-                    const flatLoop = loop.map(pt => [pt[0], bottomY, pt[2]]);
-                    const cX=(lMinX+lMaxX)/2, cZ=(lMinZ+lMaxZ)/2;
-                    const pc = new THREE.Vector3(cX, bottomY, cZ);
+                // 底面ループはY=bottomYに投影して完全水平キャップを生成
+                const capLoop = isBottom
+                    ? loop.map(pt => [pt[0], bottomY, pt[2]])
+                    : loop;
 
-                    // 法線方向チェック（下向き=-Y が外向きのはず）
-                    if (flatLoop.length >= 2) {
-                        const p0 = new THREE.Vector3(flatLoop[0][0], flatLoop[0][1], flatLoop[0][2]);
-                        const p1 = new THREE.Vector3(flatLoop[1][0], flatLoop[1][1], flatLoop[1][2]);
-                        const capNormal = pc.clone().sub(p0).cross(p1.clone().sub(p0));
-                        if (capNormal.dot(meshCenter.clone().sub(pc)) > 0) {
-                            flatLoop.reverse();
-                        }
-                    }
-                    for (let i = 0; i < flatLoop.length; i++) {
-                        const p1 = flatLoop[i];
-                        const p2 = flatLoop[(i+1) % flatLoop.length];
-                        patchPos.push(p1[0],p1[1],p1[2], cX,bottomY,cZ, p2[0],p2[1],p2[2]);
-                    }
-                } else {
-                    // ── 頂点・斜面の穴: BBox中心へのファン三角形 ──
-                    const cX=(lMinX+lMaxX)/2, cY=(lMinY+lMaxY)/2, cZ=(lMinZ+lMaxZ)/2;
-                    const pc = new THREE.Vector3(cX, cY, cZ);
+                const tris = _earClipCap(capLoop);
+                if (tris.length === 0) return;
 
-                    if (loop.length >= 2) {
-                        const p0 = new THREE.Vector3(loop[0][0], loop[0][1], loop[0][2]);
-                        const p1 = new THREE.Vector3(loop[1][0], loop[1][1], loop[1][2]);
-                        const capNormal = pc.clone().sub(p0).cross(p1.clone().sub(p0));
-                        if (capNormal.dot(meshCenter.clone().sub(pc)) > 0) {
-                            loop.reverse();
-                        }
-                    }
-                    for (let i = 0; i < loop.length; i++) {
-                        const p1 = loop[i];
-                        const p2 = loop[(i+1) % loop.length];
-                        patchPos.push(p1[0],p1[1],p1[2], cX,cY,cZ, p2[0],p2[1],p2[2]);
+                // 法線方向チェック：メッシュ重心から離れる方向が外向き
+                const [t0, t1, t2] = tris[0];
+                const va = new THREE.Vector3(t0[0],t0[1],t0[2]);
+                const vb = new THREE.Vector3(t1[0],t1[1],t1[2]);
+                const vc = new THREE.Vector3(t2[0],t2[1],t2[2]);
+                const triN = vb.clone().sub(va).cross(vc.clone().sub(va));
+                const toCenter = meshCenter.clone().sub(va);
+                // 法線がメッシュ重心方向を向いていれば内向き→巻き順反転
+                const needsFlip = triN.dot(toCenter) > 0;
+
+                for (const [p1, p2, p3] of tris) {
+                    if (needsFlip) {
+                        patchPos.push(p1[0],p1[1],p1[2], p3[0],p3[1],p3[2], p2[0],p2[1],p2[2]);
+                    } else {
+                        patchPos.push(p1[0],p1[1],p1[2], p2[0],p2[1],p2[2], p3[0],p3[1],p3[2]);
                     }
                 }
             });
@@ -1869,6 +1874,19 @@
 
             if (!silent) showSealWireframe(patchGeo);
             if (!silent) updateVisualCap(patchGeo);
+
+            // ── mergeGeometries前に属性を揃える ──
+            // tempGeoがnormal/uv等を持つ場合、patchGeoにも同itemSizeのダミー属性を追加。
+            // 属性が揃わないとmergeGeometriesがエラーになり穴が塞がれないバグの対策。
+            patchGeo.computeVertexNormals();
+            const patchCount = patchGeo.attributes.position.count;
+            Object.keys(tempGeo.attributes).forEach(attrName => {
+                if (attrName === 'position' || attrName === 'normal') return;
+                if (patchGeo.attributes[attrName]) return;
+                const itemSize = tempGeo.attributes[attrName].itemSize;
+                patchGeo.setAttribute(attrName,
+                    new THREE.BufferAttribute(new Float32Array(patchCount * itemSize), itemSize));
+            });
 
             try {
                 const merged = BufferGeometryUtils.mergeGeometries([tempGeo, patchGeo]);
@@ -2345,49 +2363,6 @@
         }
 
         // ─────────────────────────────────────────────
-        // setupMesh
-        // ─────────────────────────────────────────────
-        function setupMesh(c) {
-            const hasTex = c.material && (
-                (c.material.map) ||
-                (Array.isArray(c.material) && c.material.some(m => m && m.map))
-            );
-            if (!hasTex) {
-                c.material = new THREE.MeshStandardMaterial({ color: 0xb0c4b0, roughness: 0.8, metalness: 0.0, side: THREE.DoubleSide });
-            } else {
-                const mats = Array.isArray(c.material) ? c.material : [c.material];
-                mats.forEach(m => { if (m) { m.side = THREE.DoubleSide; m.needsUpdate = true; } });
-            }
-            c.geometry = c.geometry.toNonIndexed();
-            c.geometry.computeVertexNormals();
-
-            // ── 読み込み時にスケール・回転・位置を頂点に即焼き付け ──
-            // GLB/FBXはノードのtransformを持ってくる場合がある。
-            // ここで焼き付けることで以降の操作でtransformがズレない。
-            c.updateMatrixWorld(true);
-            const mat = c.matrixWorld.clone();
-            const _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3();
-            mat.decompose(_p, _q, _s);
-            const needsBake = Math.abs(_s.x-1)>1e-5 || Math.abs(_s.y-1)>1e-5 || Math.abs(_s.z-1)>1e-5
-                           || _p.lengthSq()>1e-8 || Math.abs(_q.w-1)>1e-5;
-            if (needsBake) {
-                const pos = c.geometry.attributes.position;
-                const bv = new THREE.Vector3();
-                for (let i = 0; i < pos.count; i++) {
-                    bv.fromBufferAttribute(pos, i);
-                    if (isNaN(bv.x)) continue;
-                    bv.applyMatrix4(mat);
-                    pos.setXYZ(i, bv.x, bv.y, bv.z);
-                }
-                pos.needsUpdate = true;
-                c.geometry.computeVertexNormals();
-                c.geometry.computeBoundingBox();
-                c.geometry.computeBoundingSphere();
-                c.position.set(0,0,0); c.rotation.set(0,0,0); c.scale.set(1,1,1);
-            }
-        }
-
-        // ─────────────────────────────────────────────
         // Loading
         // ─────────────────────────────────────────────
         function load(file) {
@@ -2567,10 +2542,6 @@
             updateCutterPlane();
         }
 
-        // ─────────────────────────────────────────────
-        // メッシュ簡略化
-        // ─────────────────────────────────────────────
-        // ─────────────────────────────────────────────
         // ─────────────────────────────────────────────
         // ボクセル化エンジン（Voxelize）
         // ─────────────────────────────────────────────
@@ -2916,9 +2887,6 @@
             return { geo, count: cellCount, voxelSize, groundY, gridCapped };
         }
 
-        // ── ボクセル間引き専用 穴埋め（Ear-clipping投影方式）────────────────
-        // sealHoles（ファン三角形）はカット断面用。ボクセル後の複雑な穴には
-        // Ear-clippingの方が圧倒的に適している。
         function _resetSimplifyPreviewUI() {
             document.getElementById('simplify-preview-info').style.display = 'none';
             document.getElementById('simplify-idle-btns').style.display = 'block';
@@ -4329,10 +4297,6 @@ if (changed) {
             el.style.display = 'block';
         }
 
-        // 距離測定ボタン（地盤面カットサブメニュー内に追加検討中、今はsetModeで起動）
-        // measureBtnはHTML上削除済み。地盤面カットと同じサブメニュー方式に統一
-        // ※ cutter-ui内に距離測定起動ボタンを追加する場合はここに追加
-
         // ── UI 非表示/再表示 ──
         const uiHideBtn = document.getElementById('ui-hide-btn');
         const uiShowBtn = document.getElementById('ui-show-btn');
@@ -4395,8 +4359,6 @@ if (changed) {
                 setTimeout(onResize, 50);
             });
         }
-
-        // 修正11: iPad縦持ち用 復帰ボタン（上部で定義済み）
 
         // 視点ボタン
         document.getElementById('view-top').onclick = () => setCam('top');
