@@ -7,8 +7,8 @@
     FBX / GLB / OBJ 形式で体積を計算するためのツール。
 
   【バージョンルール】
-    指示がない限り、軽微な更新でも毎回バージョンを 1 つ上げること。
-    例: v1.1511 → v1.1518
+    v1.6004 以降: 変更のたびに 0.0001 ずつインクリメント（3箇所更新）
+    例: v1.6004 → v1.6004
 
   【Claude への引き継ぎメモ】
 
@@ -85,6 +85,34 @@
   - 外側セル判定：グリッド境界からのBFS flood-fill → 外側=OUTSIDE, 内側穴=INSIDE_HOLE
   - sealHolesはボクセル化前に事前実行 → カルデラ穴をボクセル化前に閉じる
 
+  ─ v1.6004 修正 ─
+  - showAllHolePatches の表示色を島ごとに色分け
+  - XZ面積が最大の島 = 底面 → グレー半透明（color:0x888888, opacity:0.55, depthWrite:false）
+  - それ以外の島 = 穴断面 → オレンジ（color:0xff6600, opacity:0.85, depthWrite:true）
+  - 底面と穴断面が視覚的に区別できるようになった
+  - 修正対象: showAllHolePatches の④⑤のみ。計算ロジックは一切無変更。
+
+  ─ v1.6003 修正 ─
+  - clipTriangleOutsideBox の④「外側ポリゴン取り出し」ロジックを修正
+  - 旧: 4辺それぞれの外側でクリップしてunion → コーナー三角形が重複追加 → 体積増加バグ
+  - 新: Sutherland-Hodgman complement分解方式（耳切り分割）
+       insidePoly の各辺を1本ずつ処理し「外側断片」を切り出す → 重複なし・面積保存
+  - 修正対象: clipTriangleOutsideBox の④のみ。他は一切無変更。
+
+  ─ 視覚表示改修 (v1.6002) ─
+  - showAllHolePatches(mergedGeo): Gemini方式で全バウンダリ穴を視覚的に塞ぐ
+      ① エッジカウント方式でバウンダリエッジを全抽出（count===1）
+      ② 連結コンポーネント（島）ごとにDFS探索
+      ③ 各島を独立してファンフィルでパッチ化（分類なし→底面も漏れない）
+      ④ フィルタ: 頂点3未満 / Y幅0.05m未満（平板ノイズ）は除外
+      ⑤ 表示専用グレー半透明メッシュ（color:0x888888, opacity:0.6）
+      scene内のオブジェクト名: 'allHolePatches'
+      計算ロジックには一切触れない
+  - removeAllHolePatches(): 'allHolePatches' を scene から除去
+  - _clearVolumeDisplay に removeAllHolePatches 追加
+  - load 関数のクリア処理に removeAllHolePatches 追加
+  - calcVolume で sealHoles 後に showAllHolePatches を呼び出す
+
   ─ sealHoles (v1.1516 Ananai完全移植) ─
   - ウェルディング→バウンダリエッジ→ループ構築→ループ分類→ファンフィル（法線整合）
   - buildOuterCap は使用しない（VolCheはY=0正規化済みのため不要かつ危険）
@@ -135,7 +163,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>VolChe - Volume Checker v1.1518</title>
+    <title>VolChe - Volume Checker v1.6004</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -1148,7 +1176,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.1518</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6002</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB / OBJ ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:8px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -1205,7 +1233,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.1518</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6002</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
@@ -1908,6 +1936,201 @@
         function showSealWireframe() {}
         function updateVisualCap() {}
 
+        // ══════════════════════════════════════════════════════════════════
+        // 視覚表示専用: showAllHolePatches（Gemini方式移植）
+        // 計算ロジックには一切触れない。表示のみ。
+        // バウンダリエッジを全島探索し、すべての穴を半透明パッチで塞ぐ。
+        // ══════════════════════════════════════════════════════════════════
+        function removeAllHolePatches() {
+            const old = scene.getObjectByName('allHolePatches');
+            if (old) scene.remove(old);
+        }
+
+        function showAllHolePatches(mergedGeo) {
+            removeAllHolePatches();
+
+            const pos = mergedGeo.attributes.position;
+            const idx = mergedGeo.index;
+
+            // ── ① バウンダリエッジ抽出（エッジカウント方式）────────────────
+            // キー: "x1.xxxx_y1.xxxx_z1.xxxx|x2.xxxx_..." (座標文字列でweld)
+            const PREC = 4;
+            const getK = (i) => {
+                const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+                return `${x.toFixed(PREC)}_${y.toFixed(PREC)}_${z.toFixed(PREC)}`;
+            };
+
+            const edgeCount = new Map();   // "keyA|keyB" → count
+            const coordMap  = new Map();   // "keyA" → {x,y,z}
+
+            const processTri = (ia, ib, ic) => {
+                const ka = getK(ia), kb = getK(ib), kc = getK(ic);
+                // 座標登録
+                if (!coordMap.has(ka)) coordMap.set(ka, { x: pos.getX(ia), y: pos.getY(ia), z: pos.getZ(ia) });
+                if (!coordMap.has(kb)) coordMap.set(kb, { x: pos.getX(ib), y: pos.getY(ib), z: pos.getZ(ib) });
+                if (!coordMap.has(kc)) coordMap.set(kc, { x: pos.getX(ic), y: pos.getY(ic), z: pos.getZ(ic) });
+                // 各エッジをカウント（順不同キー）
+                [[ka,kb],[kb,kc],[kc,ka]].forEach(([a,b]) => {
+                    const eKey = a < b ? `${a}|${b}` : `${b}|${a}`;
+                    edgeCount.set(eKey, (edgeCount.get(eKey) || 0) + 1);
+                });
+            };
+
+            if (idx) {
+                for (let i = 0; i + 2 < idx.count; i += 3) {
+                    processTri(idx.getX(i), idx.getX(i+1), idx.getX(i+2));
+                }
+            } else {
+                for (let i = 0; i + 2 < pos.count; i += 3) {
+                    processTri(i, i+1, i+2);
+                }
+            }
+
+            // ── ② 隣接マップ構築（バウンダリエッジのみ）────────────────────
+            const adj = new Map(); // key → [key, ...]
+            edgeCount.forEach((count, eKey) => {
+                if (count !== 1) return;  // バウンダリ = count===1
+                const [a, b] = eKey.split('|');
+                if (!adj.has(a)) adj.set(a, []);
+                if (!adj.has(b)) adj.set(b, []);
+                adj.get(a).push(b);
+                adj.get(b).push(a);
+            });
+
+            if (adj.size === 0) return; // バウンダリなし
+
+            // ── ③ 連結コンポーネント（島）ごとにDFS探索 ──────────────────
+            const visited = new Set();
+            const islands = [];
+
+            adj.forEach((_, startKey) => {
+                if (visited.has(startKey)) return;
+
+                const nodes = [];
+                const stack = [startKey];
+                visited.add(startKey);
+
+                while (stack.length > 0) {
+                    const cur = stack.pop();
+                    nodes.push(coordMap.get(cur));
+                    (adj.get(cur) || []).forEach(next => {
+                        if (!visited.has(next)) {
+                            visited.add(next);
+                            stack.push(next);
+                        }
+                    });
+                }
+                islands.push(nodes);
+            });
+
+            // ── ④ 各島をファンフィルでパッチ化 ─────────────────────────────
+            // 島ごとに XZ面積を計算し、最大島 = 底面（グレー）、それ以外 = 穴断面（オレンジ）で色分け
+
+            // まず有効島だけ抽出してXZ面積を計算
+            const validIslands = []; // { nodes, xzArea, verts[] }
+
+            islands.forEach(nodes => {
+                if (nodes.length < 3) return;
+
+                // Y幅フィルタ: 平板なノイズ（スキャンアーティファクト）を除外
+                let minY = Infinity, maxY = -Infinity;
+                nodes.forEach(p => {
+                    if (p.y < minY) minY = p.y;
+                    if (p.y > maxY) maxY = p.y;
+                });
+                if (maxY - minY < 0.05) return;  // 5cm未満の平板島は除外
+
+                // XZ面積（Shoelace formula）で底面判定に使用
+                let xzArea = 0;
+                for (let i = 0; i < nodes.length; i++) {
+                    const a = nodes[i], b = nodes[(i + 1) % nodes.length];
+                    xzArea += a.x * b.z - b.x * a.z;
+                }
+                xzArea = Math.abs(xzArea * 0.5);
+
+                // 重心
+                let cx = 0, cy = 0, cz = 0;
+                nodes.forEach(p => { cx += p.x; cy += p.y; cz += p.z; });
+                cx /= nodes.length; cy /= nodes.length; cz /= nodes.length;
+
+                // ファンフィル頂点を生成
+                const verts = [];
+                for (let i = 0; i < nodes.length; i++) {
+                    const p1 = nodes[i];
+                    const p2 = nodes[(i + 1) % nodes.length];
+                    verts.push(cx, cy, cz, p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
+                }
+                validIslands.push({ xzArea, verts });
+            });
+
+            if (validIslands.length === 0) return;
+
+            // XZ面積最大 = 底面（グレー）、それ以外 = 穴断面（オレンジ）
+            const maxArea = Math.max(...validIslands.map(s => s.xzArea));
+            const bottomVerts = [];  // 底面用（グレー）
+            const holeVerts   = [];  // 穴断面用（オレンジ）
+
+            validIslands.forEach(s => {
+                // 最大面積の島 = 底面
+                if (s.xzArea === maxArea) {
+                    bottomVerts.push(...s.verts);
+                } else {
+                    holeVerts.push(...s.verts);
+                }
+            });
+
+            // ── ⑤ 表示用メッシュ生成（底面=グレー、穴断面=オレンジ）────────
+            const group = new THREE.Group();
+            group.name = 'allHolePatches';
+
+            // 底面パッチ：グレー半透明
+            if (bottomVerts.length > 0) {
+                const bottomGeo = new THREE.BufferGeometry();
+                bottomGeo.setAttribute('position', new THREE.Float32BufferAttribute(bottomVerts, 3));
+                bottomGeo.computeVertexNormals();
+                const bottomMesh = new THREE.Mesh(
+                    bottomGeo,
+                    new THREE.MeshPhongMaterial({
+                        color: 0x888888,
+                        transparent: true,
+                        opacity: 0.55,
+                        side: THREE.DoubleSide,
+                        depthTest: true,
+                        depthWrite: false,
+                        shininess: 10
+                    })
+                );
+                bottomMesh.renderOrder = 1;
+                group.add(bottomMesh);
+            }
+
+            // 穴断面パッチ：オレンジ不透明
+            if (holeVerts.length > 0) {
+                const holeGeo = new THREE.BufferGeometry();
+                holeGeo.setAttribute('position', new THREE.Float32BufferAttribute(holeVerts, 3));
+                holeGeo.computeVertexNormals();
+                const holeMesh = new THREE.Mesh(
+                    holeGeo,
+                    new THREE.MeshPhongMaterial({
+                        color: 0xff6600,
+                        emissive: 0x441100,
+                        transparent: true,
+                        opacity: 0.85,
+                        side: THREE.DoubleSide,
+                        depthTest: true,
+                        depthWrite: true,
+                        shininess: 20
+                    })
+                );
+                holeMesh.renderOrder = 2;
+                group.add(holeMesh);
+            }
+
+            scene.add(group);
+
+            console.log(`[showAllHolePatches] islands:${islands.length}, bottom:${bottomVerts.length/9}tris, holes:${holeVerts.length/9}tris`);
+        }
+
         let belowHighlightMesh = null;
 
 
@@ -2302,6 +2525,7 @@
             if (cap) scene.remove(cap);
             const sw = scene.getObjectByName('sealWireframe');
             if (sw) scene.remove(sw);
+            removeAllHolePatches();
             clearWireframe();
         }
 
@@ -2361,6 +2585,7 @@
             _isVoxelized = false;  // 新規ロード時はボクセル化フラグをリセット
             updateUndoBtn(); clearMeasure(); setMode('none');
             clearWireframe();
+            removeAllHolePatches();
             resetHeatmap();
             setStatus('LOADING...');
 
@@ -2949,11 +3174,11 @@
                     });
 
                     // ② ボクセル化前にsealHoles（Ananaiパイプライン）で穴を閉じる
-                    // silent=false → オレンジポリゴンで穴塞ぎを視覚表示
+                    // silent=true → 視覚表示はshowAllHolePatchesに統一（オレンジ非表示）
                     let sealFoundHoles = false;
                     const sealedGeos = worldGeos.map(wg => {
                         try {
-                            const sealed = sealHoles(wg, false, true); // noWarn=true: 大きな穴警告スキップ
+                            const sealed = sealHoles(wg, true, true); // silent=true, noWarn=true
                             if (sealed && sealed !== wg && sealed.attributes?.position) {
                                 sealFoundHoles = true;
                                 return sealed;
@@ -2962,7 +3187,7 @@
                         } catch(e) { console.warn('sealHoles voxel:', e); return wg; }
                     });
                     if (sealFoundHoles) {
-                        toast('穴を検出・塞いだよ！\nオレンジ部分が補完ポリゴンです\n（このまま続けてボクセル化します）');
+                        toast('穴を検出・塞いだよ！\n（このまま続けてボクセル化します）');
                     }
 
                     // ③ 高さマップ計算
@@ -3217,14 +3442,17 @@
                 mergedGeo = worldGeos[0].index ? worldGeos[0].toNonIndexed() : worldGeos[0];
             }
 
-            // ★ sealHoles（Ananaiパイプライン）で穴を塞いでビジュアル表示
+            // ★ sealHoles（Ananaiパイプライン）で穴を塞ぐ（視覚表示はshowAllHolePatchesに統一）
             let sealedGeo;
             try {
-                sealedGeo = sealHoles(mergedGeo, false); // silent=false → オレンジポリゴン表示
+                sealedGeo = sealHoles(mergedGeo, true); // silent=true → オレンジ非表示（色統一のため）
             } catch (e) {
                 console.warn('sealHoles failed:', e);
                 sealedGeo = mergedGeo;
             }
+
+            // ★ 表示専用: Gemini方式で全バウンダリ穴を視覚パッチで塞ぐ（計算不変・色統一）
+            try { showAllHolePatches(mergedGeo); } catch(e) { console.warn('[showAllHolePatches] skip:', e); }
 
             // ★ 体積計算（穴塞ぎ済みジオメトリ）
             let vol = 0;
@@ -3893,32 +4121,57 @@ function clipTriangleOutsideBox(v0, v1, v2, bMinX, bMaxX, bMinY, bMaxY) {
     if (allIn) return []; // 消去
 
     // ④ 部分的に重なる → 「外側」部分だけ残す
-    // 外側4半平面で順次クリップして外側ポリゴンを得る
-    // 各外側半平面：ボックスの各辺の「外」を内側として定義
-    const outsidePlaneGroups = [
-        // 左辺の外側（x < bMinX）
-        [{ inside: v => v.x <= bMinX, intersect: (a,b) => { const t=(bMinX-a.x)/(b.x-a.x); return lerpV(a,b,t); } }],
-        // 右辺の外側（x > bMaxX）
-        [{ inside: v => v.x >= bMaxX, intersect: (a,b) => { const t=(bMaxX-a.x)/(b.x-a.x); return lerpV(a,b,t); } }],
-        // 下辺の外側（y < bMinY）
-        [{ inside: v => v.y <= bMinY, intersect: (a,b) => { const t=(bMinY-a.y)/(b.y-a.y); return lerpV(a,b,t); } }],
-        // 上辺の外側（y > bMaxY）
-        [{ inside: v => v.y >= bMaxY, intersect: (a,b) => { const t=(bMaxY-a.y)/(b.y-a.y); return lerpV(a,b,t); } }],
-    ];
+    // ── 修正: 補集合方式（重複ポリゴン生成バグ修正）──────────────────
+    // 旧方式: 4辺それぞれの外側でクリップした結果をunion → コーナー部分で重複が発生し体積増加バグ
+    // 新方式: 元三角形から insidePoly を差し引く「Sutherland-Hodgman 逆用」方式
+    //
+    // 実装: insidePoly（ボックス内部）を4辺の「外側」で順次クリップして「元三角形 - insidePoly」を近似する。
+    // 具体的には insidePoly の各辺を1本ずつ「内側 = その辺の外側」として Sutherland-Hodgman を適用し、
+    // 元三角形を辺ごとに切り出す（耳切り分割）。各切り出し断片は重複しない。
+    //
+    // アルゴリズム（Sutherland-Hodgman の complement 分解）：
+    //   insidePoly の各辺 edge[i] について:
+    //     その辺の「外側」半平面で 元三角形 をクリップ → 残った断片を収集
+    //     その後、元三角形を edge[i] の「内側」でクリップして次のステップの残り元として更新
+    //   → 各断片は互いに重複せず、union = 元三角形 - insidePoly の補集合
 
-    // 各外側半平面で元三角形をクリップし、残った非空ポリゴンを収集
-    // これは「ボックス外領域を4つの帯に分割して近似する」方式。
-    // 重複が生じうるが、三角形の面積が小さい現場データでは実用上十分。
     const results = [];
-    for (const planes of outsidePlaneGroups) {
-        let p = [v0, v1, v2];
-        for (const pl of planes) {
-            p = clipPolygonByHalfPlane(p, pl.inside, pl.intersect);
-            if (p.length === 0) break;
+
+    if (insidePoly.length >= 3) {
+        // insidePoly の各辺の「外側」で元三角形を切り出す（重複なし分割）
+        let remainder = [v0, v1, v2]; // 残り元ポリゴン（逐次削っていく）
+
+        for (let i = 0; i < insidePoly.length; i++) {
+            const a = insidePoly[i];
+            const b = insidePoly[(i + 1) % insidePoly.length];
+
+            // 辺 a→b の左側（外側）を「inside」として定義
+            // 法線方向: (b-a) の右手法線 = (b.y-a.y, -(b.x-a.x)) 内積 > 0 が外側
+            const dx = b.x - a.x, dy = b.y - a.y;
+            // 外側判定: (p - a) × (b - a) > 0（NDC平面の外側）
+            const isOutside = p => (p.x - a.x) * dy - (p.y - a.y) * dx > 0;
+            const isInside  = p => !isOutside(p);
+
+            const intersectEdge = (p1, p2) => {
+                // 辺 a→b と線分 p1→p2 の交点（NDC）
+                // parametric: a + t*(b-a) と p1 + s*(p2-p1) の交点
+                const denom = (p2.x - p1.x) * dy - (p2.y - p1.y) * dx;
+                if (Math.abs(denom) < 1e-12) return lerpV(p1, p2, 0.5);
+                const t = ((a.x - p1.x) * dy - (a.y - p1.y) * dx) / denom;
+                return lerpV(p1, p2, Math.max(0, Math.min(1, t)));
+            };
+
+            // remainder のうち「外側」の部分を切り出す → 今回の断片
+            const fragment = clipPolygonByHalfPlane(remainder, isOutside, intersectEdge);
+            if (fragment.length >= 3) results.push(fragment);
+
+            // remainder を「内側」でクリップ → 次の辺の処理対象
+            remainder = clipPolygonByHalfPlane(remainder, isInside, intersectEdge);
+            if (remainder.length === 0) break;
         }
-        if (p.length >= 3) results.push(p);
     }
-    return results; // 残すポリゴン群
+
+    return results; // 残すポリゴン群（重複なし、面積保存）
 }
 
 // ポリゴン（頂点3以上）を三角形fan分割してworld座標を返す
