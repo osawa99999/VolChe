@@ -7,8 +7,8 @@
     FBX / GLB / OBJ 形式で体積を計算するためのツール。
 
   【バージョンルール】
-    v1.6004 以降: 変更のたびに 0.0001 ずつインクリメント（3箇所更新）
-    例: v1.6004 → v1.6004
+    v1.6010 以降: 変更のたびに 0.0001 ずつインクリメント（3箇所更新）
+    例: v1.6010 → v1.6010
 
   【Claude への引き継ぎメモ】
 
@@ -84,6 +84,52 @@
   - autoResetRollKeepCamera：_isVoxelized=trueの場合_clearVolumeDisplayをスキップ
   - 外側セル判定：グリッド境界からのBFS flood-fill → 外側=OUTSIDE, 内側穴=INSIDE_HOLE
   - sealHolesはボクセル化前に事前実行 → カルデラ穴をボクセル化前に閉じる
+
+  ─ v1.6010 修正 ─
+  - 確定ボタン: オレンジパッチ（穴断面）がない場合は表示しない
+  - 水密青プレビュー: color 0x0055ff, opacity 0.35 に変更（より視認しやすく）
+
+  ─ v1.6009 追加 ─
+  - 【計算後の視覚フィードバック強化】
+      calcVolume 実行後に水密化ジオメトリを半透明青（sealedPreview）で表示
+      → 素人でも「ここが計算対象」と視覚的にわかる
+  - 【穴埋め確定フロー追加】
+      計算後に「✔ 確定する」「✕ キャンセル」ボタンを表示（#seal-confirm-area）
+      確定: オレンジパッチ(穴断面)を targetMeshes[0] に正規メッシュとして焼き込む
+      キャンセル: 青・パッチを消すだけ。体積数値は残る。
+  - 【ボクセル化確定後にパッチ非表示】
+      _applySimplify 内で removeAllHolePatches + sealedPreview 除去を追加
+  - _clearVolumeDisplay に sealedPreview 除去・確定ボタン非表示を追加
+
+  ─ v1.6008 修正 ─
+  - 2パスクリーンアップの統計表示バグを修正
+  - 旧: getStats()が2パス目の値のみ返す→1パス目の除去数が闇に葬られてた
+  - 新: s1（1パス目）+ s2（2パス目）を合算。inTriは元入力数、outTriは最終出力数
+
+  ─ v1.6007 修正 ─
+  - LiDARMeshCleaner を2パス実行に変更
+  - 1パス目の量子化（0.1mm丸め）で近接頂点が同座標にスナップ→面積ゼロ化する問題を修正
+  - 2パス目で量子化由来の縮退ポリゴンを除去。2度読みしなくてもOKになった。
+
+  ─ v1.6006 追加 ─
+  - クリーンアップ結果をトーストで表示（ブラックボックス解消）
+      「ポリゴン: XXXXX → XXXXX」（入出力数）
+      除去あり: 「🧹 クリーンアップ: XX 個除去」＋内訳（NaN/0面積/極小）→ 6秒表示
+      問題なし: 「✅ クリーンアップ: 問題なし」→ 3秒表示
+  - toast() に duration 引数を追加（デフォルト3000ms、呼び出し元で上書き可能）
+
+  ─ v1.6005 追加・修正 ─
+  - 【LiDARMeshCleaner 移植】ロード時に自動クリーンアップ（FBX/GLB/OBJ 全対応）
+      ① NaN/Infinity 頂点を含む三角形を除去
+      ② 面積ゼロ三角形を除去
+      ③ 極小三角形（棘状ポリゴン含む）を除去: tinyEdgeRatio=1e-5（BBox対角比）
+      ④ 頂点座標を 0.1mm 単位で量子化（quantizeStep=0.0001m）
+      setup() 内の applyMatrix4 直後に cleaner.clean() を挿入。
+      クリーンアップ失敗時は警告のみでロード継続（フォールバック）。
+  - 【バージョン全箇所更新】ドロップ画面・パネルヘッダー・title・コメント
+  - 【PWA対応】Service Worker 登録コードを </body> 直前に追加
+      sw.js と manifest.json は GitHub に別途配置する（VolChe本体は準備完了）
+      ローカル(file://)では登録失敗するが無視して動作継続
 
   ─ v1.6004 修正 ─
   - showAllHolePatches の表示色を島ごとに色分け
@@ -163,7 +209,8 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>VolChe - Volume Checker v1.6004</title>
+    <link rel="manifest" href="./manifest.json">
+    <title>VolChe - Volume Checker v1.6010</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -1176,7 +1223,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6002</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6010</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB / OBJ ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:8px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -1233,7 +1280,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6002</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6010</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
@@ -1259,6 +1306,17 @@
                 </div>
                 <div id="vert-count-inline" style="font-family:var(--mono); font-size:10px; color:var(--text-dim); white-space:nowrap; flex-shrink:0; line-height:1.5; text-align:right; display:none; align-self:center;">頂点: --<br>ポリゴン: --</div>
                 <button class="btn btn-accent" id="calcBtn" style="margin-bottom:0; flex-shrink:0; width:auto; padding:8px 10px; font-size:14px; white-space:nowrap;">▶ 計算</button>
+            </div>
+            <!-- 穴埋め確定ボタン（計算後に表示） -->
+            <div id="seal-confirm-area" style="display:none; margin-bottom:6px; display:none;">
+                <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:5px; line-height:1.5;">
+                    🔵 青 = 計算範囲 / 🟠 オレンジ = 穴埋め部分<br>
+                    確定するとオレンジが正規メッシュになるよ
+                </div>
+                <div style="display:flex; gap:5px;">
+                    <button class="btn" id="sealConfirmBtn" style="flex:1; background:rgba(57,255,143,0.12); border-color:var(--accent); color:var(--accent); font-weight:700; font-size:13px;">✔ 確定する</button>
+                    <button class="btn" id="sealCancelBtn" style="flex:1; font-size:13px;">✕ キャンセル</button>
+                </div>
             </div>
             <div class="section" style="margin-top:12px;">
                 <div class="section-label">File</div>
@@ -2361,12 +2419,12 @@
         // Toast / Status
         // ─────────────────────────────────────────────
         let toastTimer;
-        function toast(msg, isError = false) {
+        function toast(msg, isError = false, duration = 3000) {
             const el = document.getElementById('toast');
             el.textContent = msg;
             el.className = 'show' + (isError ? ' error' : '');
             clearTimeout(toastTimer);
-            toastTimer = setTimeout(() => { el.className = ''; }, 3000);
+            toastTimer = setTimeout(() => { el.className = ''; }, duration);
         }
         function setStatus(msg) { /* status-textは廃止、toast経由に統一 */ }
         function updateVertCount() {
@@ -2525,8 +2583,14 @@
             if (cap) scene.remove(cap);
             const sw = scene.getObjectByName('sealWireframe');
             if (sw) scene.remove(sw);
+            // 水密青プレビューを消す
+            const sp = scene.getObjectByName('sealedPreview');
+            if (sp) scene.remove(sp);
             removeAllHolePatches();
             clearWireframe();
+            // 確定ボタンエリアを隠す
+            const sca = document.getElementById('seal-confirm-area');
+            if (sca) sca.style.display = 'none';
         }
 
         // ユーティリティ：cutterPlaneをオブジェクト現在サイズに合わせて再初期化
@@ -2573,6 +2637,143 @@
             document.getElementById('dist-raw').textContent = '0.000';
         }
 
+        // ═════════════════════════════════════════════════════════════════
+        // LiDARMeshCleaner  (v1.0.0 → VolChe移植版)
+        // ロード時に自動実行。棘状不良ポリゴン・NaN・面積ゼロ・極小三角形を除去。
+        // ＋ 頂点座標 0.1mm 未満を切り捨て（量子化）
+        // ═════════════════════════════════════════════════════════════════
+        class LiDARMeshCleaner {
+            /**
+             * @param {object}  opts
+             * @param {number}  [opts.zeroAreaThreshold=1e-20]  面積^2 の下限
+             * @param {number}  [opts.tinyEdgeRatio=1e-5]       BBox対角比（相対しきい値）
+             * @param {number}  [opts.quantizeStep=0.0001]      量子化ステップ（m単位, 0.1mm）
+             * @param {boolean} [opts.verbose=false]            コンソール出力
+             */
+            constructor(opts) {
+                this.opts = Object.assign({
+                    zeroAreaThreshold : 1e-20,
+                    tinyEdgeRatio     : 1e-5,
+                    quantizeStep      : 0.0001,   // 0.1mm
+                    verbose           : false,
+                }, opts || {});
+                this._reset();
+            }
+
+            _reset() {
+                this.stats = {
+                    trianglesInput   : 0,
+                    removed_nan      : 0,
+                    removed_zeroArea : 0,
+                    removed_tinyEdge : 0,
+                    trianglesOutput  : 0,
+                    normalsRecomputed: false,
+                };
+            }
+
+            /**
+             * クリーンアップ実行
+             * ① NaN/Inf 頂点を含む三角形を除去
+             * ② 面積ゼロ三角形を除去
+             * ③ 極小三角形（棘状ポリゴン含む）を除去
+             * ④ 頂点座標を 0.1mm 単位で量子化（浮動小数点ノイズ低減）
+             */
+            clean(geometry) {
+                if (!geometry || !geometry.isBufferGeometry)
+                    throw new Error('[LiDARMeshCleaner] THREE.BufferGeometry が必要です');
+                this._reset();
+
+                // 非インデックス化して統一
+                const geo = geometry.index ? geometry.toNonIndexed() : geometry.clone();
+                const pos = geo.attributes.position.array;
+                const nTri = Math.floor(pos.length / 9);
+                this.stats.trianglesInput = nTri;
+
+                // BBox対角でスケール相対しきい値を算出
+                geo.computeBoundingBox();
+                const bb = geo.boundingBox;
+                const diag = bb ? bb.min.distanceTo(bb.max) : 1.0;
+                const tinyEdgeSq = Math.pow(diag * this.opts.tinyEdgeRatio, 2);
+
+                // パス1: 有効三角形インデックス収集
+                const valid = [];
+                for (let i = 0; i < nTri; i++) {
+                    const b  = i * 9;
+                    const ax = pos[b],   ay = pos[b+1], az = pos[b+2];
+                    const Bx = pos[b+3], By = pos[b+4], Bz = pos[b+5];
+                    const cx = pos[b+6], cy = pos[b+7], cz = pos[b+8];
+
+                    // ① NaN / Infinity チェック
+                    if (!isFinite(ax)||!isFinite(ay)||!isFinite(az)||
+                        !isFinite(Bx)||!isFinite(By)||!isFinite(Bz)||
+                        !isFinite(cx)||!isFinite(cy)||!isFinite(cz)) {
+                        this.stats.removed_nan++; continue;
+                    }
+
+                    // ② 面積ゼロ（クロス積の大きさ^2）
+                    const ex=Bx-ax, ey=By-ay, ez=Bz-az;
+                    const fx=cx-ax, fy=cy-ay, fz=cz-az;
+                    const nx=ey*fz-ez*fy, ny=ez*fx-ex*fz, nz=ex*fy-ey*fx;
+                    if (nx*nx+ny*ny+nz*nz < this.opts.zeroAreaThreshold) {
+                        this.stats.removed_zeroArea++; continue;
+                    }
+
+                    // ③ 極小三角形（全辺がしきい値以下）= 棘状ポリゴン含む
+                    const abSq = ex*ex+ey*ey+ez*ez;
+                    const acSq = fx*fx+fy*fy+fz*fz;
+                    const gx=cx-Bx, gy=cy-By, gz=cz-Bz;
+                    const bcSq = gx*gx+gy*gy+gz*gz;
+                    if (abSq < tinyEdgeSq && acSq < tinyEdgeSq && bcSq < tinyEdgeSq) {
+                        this.stats.removed_tinyEdge++; continue;
+                    }
+
+                    valid.push(i);
+                }
+
+                // パス2: 有効三角形を詰め直し ＋ ④ 量子化（0.1mm単位）
+                const nOut   = valid.length;
+                const step   = this.opts.quantizeStep;
+                const invStep = step > 0 ? 1 / step : 0;
+                const newPos = new Float32Array(nOut * 9);
+
+                const quantize = (v) => step > 0 ? Math.round(v * invStep) * step : v;
+
+                for (let j = 0; j < nOut; j++) {
+                    const src = valid[j]*9, dst = j*9;
+                    newPos[dst  ] = quantize(pos[src  ]);
+                    newPos[dst+1] = quantize(pos[src+1]);
+                    newPos[dst+2] = quantize(pos[src+2]);
+                    newPos[dst+3] = quantize(pos[src+3]);
+                    newPos[dst+4] = quantize(pos[src+4]);
+                    newPos[dst+5] = quantize(pos[src+5]);
+                    newPos[dst+6] = quantize(pos[src+6]);
+                    newPos[dst+7] = quantize(pos[src+7]);
+                    newPos[dst+8] = quantize(pos[src+8]);
+                }
+
+                const outGeo = new THREE.BufferGeometry();
+                outGeo.setAttribute('position', new THREE.BufferAttribute(newPos, 3));
+
+                // 法線 再計算
+                outGeo.computeVertexNormals();
+                outGeo.computeBoundingBox();
+                outGeo.computeBoundingSphere();
+                this.stats.normalsRecomputed = true;
+                this.stats.trianglesOutput   = nOut;
+
+                if (this.opts.verbose) console.log(this.getSummary());
+                return outGeo;
+            }
+
+            getStats()    { return Object.assign({}, this.stats); }
+            getSummary()  {
+                const s=this.stats, r=s.removed_nan+s.removed_zeroArea+s.removed_tinyEdge;
+                return '[LiDARMeshCleaner] '+s.trianglesInput+'→'+s.trianglesOutput+
+                       ' tri (removed '+r+': NaN='+s.removed_nan+
+                       ' / zeroArea='+s.removed_zeroArea+' / tiny='+s.removed_tinyEdge+')';
+            }
+        }
+
         // ─────────────────────────────────────────────
         // Loading
         // ─────────────────────────────────────────────
@@ -2593,14 +2794,37 @@
             const setup = (obj) => {
                 // ★ 100万倍対策：読み込み直後にupdateMatrixWorldして全Meshに焼き込む
                 obj.updateMatrixWorld(true);
+                // ★ LiDARMeshCleaner: ロード時クリーンアップ（棘除去・NaN除去・量子化）
+                const _cleaner = new LiDARMeshCleaner({ verbose: true });
+                // 累積統計
+                const _cleanStats = { nan: 0, zeroArea: 0, tinyEdge: 0, inTri: 0, outTri: 0 };
                 obj.traverse(c => {
                     if (!c.isMesh) return;
                     // matrixWorldを頂点に直接焼き込む（UnitScaleFactor等を吸収）
                     c.geometry = c.geometry.toNonIndexed();
                     c.geometry.applyMatrix4(c.matrixWorld);
-                    c.geometry.computeVertexNormals();
-                    c.geometry.computeBoundingBox();
-                    c.geometry.computeBoundingSphere();
+                    // ★ クリーンアップ実行（NaN除去 → 面積ゼロ除去 → 極小三角形除去 → 0.1mm量子化）
+                    // 2パス: 量子化で新たに面積ゼロになるポリゴンを2回目で除去
+                    try {
+                        const cleaned  = _cleaner.clean(c.geometry);        // 1パス目（量子化含む）
+                        const s1 = _cleaner.getStats();                     // 1パス目の結果を先に保存
+                        const cleaned2 = _cleaner.clean(cleaned);           // 2パス目（量子化由来の縮退を除去）
+                        const s2 = _cleaner.getStats();                     // 2パス目の結果
+                        cleaned.dispose();
+                        c.geometry.dispose();
+                        c.geometry = cleaned2;
+                        // 1パス目＋2パス目を合算して表示（inTriは1パス目、outTriは2パス目）
+                        _cleanStats.nan      += s1.removed_nan      + s2.removed_nan;
+                        _cleanStats.zeroArea += s1.removed_zeroArea + s2.removed_zeroArea;
+                        _cleanStats.tinyEdge += s1.removed_tinyEdge + s2.removed_tinyEdge;
+                        _cleanStats.inTri    += s1.trianglesInput;   // 元の入力数
+                        _cleanStats.outTri   += s2.trianglesOutput;  // 最終出力数
+                    } catch(e) {
+                        console.warn('[setup] LiDARMeshCleaner skip:', e);
+                        c.geometry.computeVertexNormals();
+                        c.geometry.computeBoundingBox();
+                        c.geometry.computeBoundingSphere();
+                    }
                     // transform完全リセット
                     c.position.set(0,0,0); c.rotation.set(0,0,0); c.scale.set(1,1,1);
                     c.updateMatrixWorld(true);
@@ -2636,7 +2860,20 @@
                     setStatus('LOADED');
                     updateVertCount();
                     autoResetRoll();
-                    toast(`読み込み完了: ${targetMeshes.length} メッシュ`);
+                    // ── クリーンアップ結果トースト ──────────────────────────────
+                    const _removed = _cleanStats.nan + _cleanStats.zeroArea + _cleanStats.tinyEdge;
+                    let _msg = `読み込み完了 ✓ (${targetMeshes.length} メッシュ)\n`;
+                    _msg += `ポリゴン: ${_cleanStats.inTri.toLocaleString()} → ${_cleanStats.outTri.toLocaleString()}`;
+                    if (_removed > 0) {
+                        _msg += `\n🧹 クリーンアップ: ${_removed.toLocaleString()} 個除去`;
+                        if (_cleanStats.nan      > 0) _msg += `\n  • NaN頂点: ${_cleanStats.nan.toLocaleString()} 個`;
+                        if (_cleanStats.zeroArea > 0) _msg += `\n  • 0面積ポリゴン: ${_cleanStats.zeroArea.toLocaleString()} 個`;
+                        if (_cleanStats.tinyEdge > 0) _msg += `\n  • 極小ポリゴン(棘): ${_cleanStats.tinyEdge.toLocaleString()} 個`;
+                        toast(_msg, false, 6000); // 除去あり → 6秒表示
+                    } else {
+                        _msg += `\n✅ クリーンアップ: 問題なし`;
+                        toast(_msg, false, 3000); // 問題なし → 3秒
+                    }
                     dropOverlay.classList.remove('active');
                     setTimeout(updateObjSizeDisplay, 200); // 7番: サイズ表示更新
                     URL.revokeObjectURL(url);
@@ -3309,6 +3546,11 @@
             _simplifyPreviewGeos = null;
             _isVoxelized = true;  // ボクセル化確定：calcVolumeでsealHolesをスキップ
 
+            // ボクセル化確定後はオレンジ・グレーのパッチを非表示
+            removeAllHolePatches();
+            const sp = scene.getObjectByName('sealedPreview');
+            if (sp) scene.remove(sp);
+
             // 体積表示を即更新（_voxelVolumeはボクセル高さマップ方式の値）
             document.getElementById('result').textContent = _voxelVolume.toFixed(4);
             clearWireframe();
@@ -3452,7 +3694,40 @@
             }
 
             // ★ 表示専用: Gemini方式で全バウンダリ穴を視覚パッチで塞ぐ（計算不変・色統一）
-            try { showAllHolePatches(mergedGeo); } catch(e) { console.warn('[showAllHolePatches] skip:', e); }
+            // オレンジパッチ（穴断面）があった場合のみ確定ボタンを表示するため戻り値を確認
+            let _hasOrangePatches = false;
+            try {
+                showAllHolePatches(mergedGeo);
+                // allHolePatchesグループ内にオレンジメッシュが存在するか確認
+                const _pg = scene.getObjectByName('allHolePatches');
+                if (_pg) {
+                    _pg.traverse(c => {
+                        if (c.isMesh && c.material?.color) {
+                            const col = c.material.color;
+                            if (col.r > 0.8 && col.g < 0.6) _hasOrangePatches = true; // オレンジ判定
+                        }
+                    });
+                }
+            } catch(e) { console.warn('[showAllHolePatches] skip:', e); }
+
+            // ★ 水密化プレビュー: sealedGeoを半透明青で表示（「ここが計算対象」の視覚化）
+            const oldBlue = scene.getObjectByName('sealedPreview');
+            if (oldBlue) scene.remove(oldBlue);
+            try {
+                const blueGeo = sealedGeo.index ? sealedGeo.toNonIndexed() : sealedGeo.clone();
+                blueGeo.computeVertexNormals();
+                const blueMesh = new THREE.Mesh(blueGeo, new THREE.MeshPhongMaterial({
+                    color: 0x0055ff, transparent: true, opacity: 0.35,
+                    side: THREE.DoubleSide, depthWrite: false, shininess: 10
+                }));
+                blueMesh.name = 'sealedPreview';
+                blueMesh.renderOrder = 0;
+                scene.add(blueMesh);
+            } catch(e) { console.warn('[sealedPreview] skip:', e); }
+
+            // ★ 確定ボタンエリア: オレンジパッチがある場合のみ表示
+            document.getElementById('seal-confirm-area').style.display =
+                _hasOrangePatches ? 'block' : 'none';
 
             // ★ 体積計算（穴塞ぎ済みジオメトリ）
             let vol = 0;
@@ -4287,6 +4562,61 @@ if (changed) {
         document.getElementById('exportBtn').onclick = exportGLB;
         document.getElementById('calcBtn').onclick = calcVolume;
 
+        // ── 穴埋め確定ボタン ──────────────────────────────────────────
+        document.getElementById('sealConfirmBtn').onclick = () => {
+            // allHolePatches のオレンジメッシュを正規メッシュとして焼き込む
+            const patchGroup = scene.getObjectByName('allHolePatches');
+            if (patchGroup) {
+                pushHistory();
+                patchGroup.traverse(child => {
+                    if (!child.isMesh) return;
+                    // オレンジのみ（色が warn 系 = 穴断面）を対象
+                    const col = child.material?.color;
+                    if (!col) return;
+                    // color 0xff6600 → r≒1, g≒0.4, b=0 → g < 0.6 で判別
+                    if (col.r < 0.5 || col.g > 0.6) return; // グレー(底面)はスキップ
+
+                    // ワールド座標に変換して targetMeshes[0] にマージ
+                    const wGeo = child.geometry.clone();
+                    wGeo.applyMatrix4(child.matrixWorld);
+                    const target = targetMeshes[0];
+                    if (!target) return;
+                    const tPos = target.geometry.attributes.position;
+                    const pPos = wGeo.attributes.position;
+                    const matInv = target.matrixWorld.clone().invert();
+                    const merged = new Float32Array(tPos.array.length + pPos.count * 3);
+                    merged.set(tPos.array);
+                    for (let i = 0; i < pPos.count; i++) {
+                        const lv = new THREE.Vector3().fromBufferAttribute(pPos, i).applyMatrix4(matInv);
+                        merged[tPos.array.length + i * 3    ] = lv.x;
+                        merged[tPos.array.length + i * 3 + 1] = lv.y;
+                        merged[tPos.array.length + i * 3 + 2] = lv.z;
+                    }
+                    const newGeo = new THREE.BufferGeometry();
+                    newGeo.setAttribute('position', new THREE.Float32BufferAttribute(merged, 3));
+                    newGeo.computeVertexNormals();
+                    newGeo.computeBoundingBox();
+                    newGeo.computeBoundingSphere();
+                    target.geometry.dispose();
+                    target.geometry = newGeo;
+                    wGeo.dispose();
+                });
+                updateVertCount();
+            }
+            // 青・パッチを消して確定ボタンを隠す
+            _clearVolumeDisplay();
+            toast('穴埋めを確定したよ ✓');
+        };
+
+        // ── 穴埋めキャンセルボタン（ボタンを消すだけ）────────────────
+        document.getElementById('sealCancelBtn').onclick = () => {
+            // 青・パッチを消して確定ボタンを隠す（体積数値は残す）
+            const sp = scene.getObjectByName('sealedPreview');
+            if (sp) scene.remove(sp);
+            removeAllHolePatches();
+            document.getElementById('seal-confirm-area').style.display = 'none';
+        };
+
         // カットツール（setModeで管理）
         document.getElementById('btn-toggle-cutter').onclick = () => {
             setMode(mode === 'cutter' ? 'none' : 'cutter');
@@ -4832,6 +5162,26 @@ if (changed) {
             controls.update();
             renderer.render(scene, camera);
         })();
+    </script>
+
+    <!-- ═══════════════════════════════════════════════
+         PWA: Service Worker 登録
+         manifest.json と sw.js は GitHub に別途配置してね。
+         https://[username].github.io/VolChe/ で配信する前提。
+         ═══════════════════════════════════════════════ -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js', { scope: './' })
+                    .then(reg => {
+                        console.log('[PWA] Service Worker 登録完了:', reg.scope);
+                    })
+                    .catch(err => {
+                        // ローカルファイル（file://）では登録失敗するが無視してOK
+                        console.log('[PWA] Service Worker 登録スキップ:', err.message);
+                    });
+            });
+        }
     </script>
 </body>
 
