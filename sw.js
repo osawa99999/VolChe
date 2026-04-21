@@ -16,7 +16,7 @@ self.addEventListener('install', event => {
             .then(cache => cache.addAll(['./', './index.html', './manifest.json']))
             .then(() => self.skipWaiting())
     );
-});
+});　
 
 // ── アクティベート: 古いキャッシュを削除 ────────────────────
 self.addEventListener('activate', event => {
