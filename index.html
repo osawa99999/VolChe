@@ -7,8 +7,8 @@
     FBX / GLB / OBJ 形式で体積を計算するためのツール。
 
   【バージョンルール】
-    v1.6011 以降: 変更のたびに 0.0001 ずつインクリメント（3箇所更新）
-    例: v1.6011 → v1.6011
+    v1.6012 以降: 変更のたびに 0.0001 ずつインクリメント（3箇所更新）
+    例: v1.6012 → v1.6012
 
   【Claude への引き継ぎメモ】
 
@@ -85,9 +85,15 @@
   - 外側セル判定：グリッド境界からのBFS flood-fill → 外側=OUTSIDE, 内側穴=INSIDE_HOLE
   - sealHolesはボクセル化前に事前実行 → カルデラ穴をボクセル化前に閉じる
 
+  ─ v1.6012 修正 ─
+  - 最新版確認ボタンを1回押したら永続グレー無効化（再押し不可）
+      結果に関わらず disabled + borderColor/color をグレーに固定
+      キャンセル時・通信失敗時も復活しない
+  - _REMOTE_URL を index.html に修正（404エラー対策）
+
   ─ v1.6011 追加 ─
   - 【最新版確認ボタン】ロード画面に「🔄 最新版を確認する」ボタンを追加
-      fetch先: https://osawa99999.github.io/VolChe/index.html	  
+      fetch先: https://osawa99999.github.io/VolChe/VolChe_v1_xxxx.html
       同じ → 「✅ 最新版だよ！」 / 新しい → confirm → キャッシュ全削除＋リダイレクト
       通信失敗 → 「⚠ 確認できなかったよ！」
   - _CURRENT_VERSION と _REMOTE_URL はバージョンアップ時に更新してね
@@ -218,7 +224,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <link rel="manifest" href="./manifest.json">
-    <title>VolChe - Volume Checker v1.6011</title>
+    <title>VolChe - Volume Checker v1.6012</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -1231,7 +1237,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6011</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6012</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB / OBJ ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:8px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -1292,7 +1298,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6011</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6012</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
@@ -5180,43 +5186,43 @@ if (changed) {
          最新版チェック
          ═══════════════════════════════════════════════ -->
     <script>
-        const _CURRENT_VERSION = 'v1.6011';
+        const _CURRENT_VERSION = 'v1.6012';
         const _REMOTE_URL = 'https://osawa99999.github.io/VolChe/index.html';
+
+        // ボタンを永続的に無効化するヘルパー
+        function _disableUpdateBtn(msg) {
+            const btn = document.getElementById('checkUpdateBtn');
+            btn.textContent = msg;
+            btn.disabled = true;
+            btn.style.borderColor = 'rgba(255,255,255,0.1)';
+            btn.style.color = 'rgba(255,255,255,0.2)';
+            btn.style.cursor = 'default';
+        }
 
         document.getElementById('checkUpdateBtn').addEventListener('click', async () => {
             const btn = document.getElementById('checkUpdateBtn');
+            // 押した瞬間にボタンをグレー無効化（2度押し防止）
             btn.textContent = '🔄 確認中...';
             btn.disabled = true;
+            btn.style.borderColor = 'rgba(255,255,255,0.1)';
+            btn.style.color = 'rgba(255,255,255,0.3)';
 
             try {
-                // キャッシュを無視して最新を取得（no-cache）
                 const res = await fetch(_REMOTE_URL, {
                     cache: 'no-store',
-                    signal: AbortSignal.timeout(8000)  // 8秒タイムアウト
+                    signal: AbortSignal.timeout(8000)
                 });
                 if (!res.ok) throw new Error('HTTP ' + res.status);
 
                 const html = await res.text();
-
-                // リモートのバージョン文字列を抽出
                 const match = html.match(/VolChe - Volume Checker (v[\d.]+)/);
                 const remoteVersion = match ? match[1] : null;
 
-                if (!remoteVersion) {
-                    throw new Error('バージョン情報が取得できなかったよ');
-                }
+                if (!remoteVersion) throw new Error('バージョン情報が取得できなかったよ');
 
                 if (remoteVersion === _CURRENT_VERSION) {
-                    // 最新版と同じ
-                    btn.textContent = '✅ 最新版だよ！';
-                    btn.style.borderColor = 'var(--accent)';
-                    btn.style.color = 'var(--accent)';
-                    setTimeout(() => {
-                        btn.textContent = '🔄 最新版を確認する';
-                        btn.style.borderColor = '';
-                        btn.style.color = '';
-                        btn.disabled = false;
-                    }, 3000);
+                    // 最新版 → 永続グレー無効化
+                    _disableUpdateBtn('✅ 最新版だよ！');
                 } else {
                     // 新しいバージョンあり！
                     const ok = confirm(
@@ -5227,29 +5233,20 @@ if (changed) {
                         `（キャッシュを削除してリロードするよ）`
                     );
                     if (ok) {
-                        // 全キャッシュ削除してリモートURLにリダイレクト
                         if ('caches' in window) {
                             const keys = await caches.keys();
                             await Promise.all(keys.map(k => caches.delete(k)));
                         }
                         window.location.href = _REMOTE_URL + '?nocache=' + Date.now();
                     } else {
-                        btn.textContent = '🔄 最新版を確認する';
-                        btn.disabled = false;
+                        // キャンセルしても永続グレー無効化
+                        _disableUpdateBtn('🔄 最新版を確認する');
                     }
                 }
             } catch (e) {
-                // 通信失敗
-                btn.textContent = '⚠ 確認できなかったよ！';
-                btn.style.borderColor = 'var(--warn)';
-                btn.style.color = 'var(--warn)';
+                // 通信失敗 → 永続グレー無効化
+                _disableUpdateBtn('⚠ 確認できなかったよ！');
                 console.warn('[UpdateCheck]', e);
-                setTimeout(() => {
-                    btn.textContent = '🔄 最新版を確認する';
-                    btn.style.borderColor = '';
-                    btn.style.color = '';
-                    btn.disabled = false;
-                }, 3000);
             }
         });
     </script>
