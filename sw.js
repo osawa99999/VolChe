@@ -13,11 +13,7 @@ self.addEventListener('install', event => {
     console.log('[SW] install:', CACHE_NAME);
     event.waitUntil(
         caches.open(CACHE_NAME)
-            .then(cache => cache.addAll([
-                './',
-                './index.html',
-                './manifest.json',
-            ]))
+            .then(cache => cache.addAll(['./', './index.html', './manifest.json']))
             .then(() => self.skipWaiting())
     );
 });

@@ -2,7 +2,7 @@
   "name": "VolChe - Volume Checker",
   "short_name": "VolChe",
   "description": "LiDAR 3Dデータから残土量を計算するツール",
-  "start_url": "./VolChe_v1_6005.html",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
