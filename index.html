@@ -8,7 +8,7 @@
 
   【バージョンルール】
     v1.6013 以降: 変更のたびに 0.0001 ずつインクリメント（3箇所更新）
-    例: v1.6013 → v1.6014　
+    例: v1.6013 → v1.6014
 
   【Claude への引き継ぎメモ】
 
@@ -84,6 +84,11 @@
   - autoResetRollKeepCamera：_isVoxelized=trueの場合_clearVolumeDisplayをスキップ
   - 外側セル判定：グリッド境界からのBFS flood-fill → 外側=OUTSIDE, 内側穴=INSIDE_HOLE
   - sealHolesはボクセル化前に事前実行 → カルデラ穴をボクセル化前に閉じる
+
+  ─ v1.6016 修正 ─
+  - setMode 呼び出し時に sealedPreview（青半透明）と allHolePatches を除去
+  - 体積計算後に他のボタンを押すと青いポリゴンが残る問題を修正
+  - 体積数値（result）はリセットせず保持
 
   ─ v1.6015 修正 ─
   - 体積計算時にオレンジパッチ（切断面）XZ面積が底面の30%超の場合
@@ -241,7 +246,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <link rel="manifest" href="./manifest.json">
-    <title>VolChe - Volume Checker v1.6015</title>
+    <title>VolChe - Volume Checker v1.6016</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -1254,7 +1259,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6015</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6016</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB / OBJ ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:8px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -1315,7 +1320,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6015</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6016</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
@@ -4167,6 +4172,13 @@
             const prevMode = mode;
             mode = newMode;
 
+            // モード切替時は青いプレビューと穴パッチを消す（体積数値は残す）
+            const _sp = scene.getObjectByName('sealedPreview');
+            if (_sp) scene.remove(_sp);
+            removeAllHolePatches();
+            const _sca = document.getElementById('seal-confirm-area');
+            if (_sca) _sca.style.display = 'none';
+
             // voxelize以外のモードに入る時のみ既存プレビューをキャンセル
             if (newMode !== 'none' && newMode !== 'voxelize') _cancelSimplifyPreview();
             // voxelizeから離れるときはプレビューをクリーンアップ
@@ -5351,7 +5363,7 @@ if (changed) {
          最新版チェック
          ═══════════════════════════════════════════════ -->
     <script>
-        const _CURRENT_VERSION = 'v1.6015';
+        const _CURRENT_VERSION = 'v1.6016';
         const _REMOTE_URL = 'https://osawa99999.github.io/VolChe/index.html';
 
         // ボタンを永続的に無効化するヘルパー
