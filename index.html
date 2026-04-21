@@ -85,6 +85,20 @@
   - 外側セル判定：グリッド境界からのBFS flood-fill → 外側=OUTSIDE, 内側穴=INSIDE_HOLE
   - sealHolesはボクセル化前に事前実行 → カルデラ穴をボクセル化前に閉じる
 
+  ─ v1.6021 修正 ─
+  - _isSealConfirmed / _lastCalcVolume のリセット漏れを修正
+  - _clearVolumeDisplay() にフラグリセットを追加
+    → 矩形消去・ラッソ消去・カット・undo後も正しく再計算されるようになった
+    → 問題1〜5（確定後に消去→計算で前の体積が出る・青プレビューが出ない）を解決
+
+  ─ v1.6020 修正 ─
+  - 穴埋め確定後に再計算すると体積が微妙にズレる問題を修正
+  - 原因: 確定後も buildBottomCap+sealHoles が再実行されて底面キャップ形状が微変化
+  - 修正: _lastCalcVolume（1回目の計算値）と _isSealConfirmed フラグを追加
+      確定ボタン押下 → _isSealConfirmed=true
+      次回 calcVolume → _lastCalcVolume をそのまま返す（再計算しない）
+      新規ロード・undo → 両フラグをリセット
+
   ─ v1.6019 修正 ─
   - ヘッダーコメントの古い記述を現状に合わせて修正
     ・sealHoles注釈: 底面処理の役割がbuildBottomCapに移ったことを明記
@@ -262,7 +276,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <link rel="manifest" href="./manifest.json">
-    <title>VolChe - Volume Checker v1.6019</title>
+    <title>VolChe - Volume Checker v1.6021</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -1275,7 +1289,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6019</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6021</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB / OBJ ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:8px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -1336,7 +1350,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6019</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6021</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
@@ -2562,6 +2576,7 @@
                 targetMeshes[i].geometry = geom;
             });
             _isVoxelized = false;  // undo後はボクセル化フラグをリセット
+            _isSealConfirmed = false; _lastCalcVolume = -1; // 穴埋め確定フラグもリセット
             updateUndoBtn();
             updateVertCount();
             clearWireframe();
@@ -2751,6 +2766,9 @@
             // 確定ボタンエリアを隠す
             const sca = document.getElementById('seal-confirm-area');
             if (sca) sca.style.display = 'none';
+            // 穴埋め確定フラグをリセット（消去・カット・ロード後は再計算が必要）
+            _isSealConfirmed = false;
+            _lastCalcVolume = -1;
         }
 
         // ユーティリティ：cutterPlaneをオブジェクト現在サイズに合わせて再初期化
@@ -2944,6 +2962,7 @@
             while (modelGroup.children.length > 0) modelGroup.remove(modelGroup.children[0]);
             targetMeshes = []; history = [];
             _isVoxelized = false;  // 新規ロード時はボクセル化フラグをリセット
+            _isSealConfirmed = false; _lastCalcVolume = -1; // 穴埋め確定フラグもリセット
             updateUndoBtn(); clearMeasure(); setMode('none');
             clearWireframe();
             removeAllHolePatches();
@@ -3158,6 +3177,8 @@
         let _simplifyPreviewObj  = null;  // シーン上のプレビュー表示オブジェクト
         let _voxelVolume = 0;             // プレビュー時に計算した体積（m³）
         let _isVoxelized = false;         // ボクセル化確定済みフラグ（calcVolumeでsealHolesをスキップ）
+        let _lastCalcVolume = -1;         // 直前のcalcVolume結果（確定後の2回目計算で再利用）
+        let _isSealConfirmed = false;     // 穴埋め確定済みフラグ（確定後は_lastCalcVolumeを返す）
 
         // スライダー値 → ボクセルサイズ（メートル）
         // スライダー 2～30 → 2cm～30cm（固定値）
@@ -3793,6 +3814,16 @@
                 return;
             }
 
+            // ── 穴埋め確定済みの場合は前回の計算値をそのまま返す ──
+            // 確定ボタンでオレンジパッチを焼き込んでも底面キャップの再生成で
+            // わずかな誤差が生じるため、1回目の計算値を正式値として保持する。
+            if (_isSealConfirmed && _lastCalcVolume >= 0) {
+                const resultEl = document.getElementById('result');
+                resultEl.textContent = _lastCalcVolume.toFixed(3);
+                toast(`体積: ${_lastCalcVolume.toFixed(3)} m³`);
+                return;
+            }
+
             const resultEl = document.getElementById('result');
             resultEl.textContent = '計算中...';
             setStatus('COMPUTING...');
@@ -3958,6 +3989,8 @@
             const result = Math.abs(vol);
             const truncated = Math.floor(result * 1000) / 1000;
             resultEl.textContent = truncated.toFixed(3);
+            _lastCalcVolume = truncated;   // 確定後の再計算用に保存
+            _isSealConfirmed = false;      // 新規計算なのでリセット
             setStatus('READY');
             toast(`体積: ${truncated.toFixed(3)} m³`);
             }, 30);
@@ -4811,6 +4844,11 @@ if (changed) {
             }
             // 青・パッチを消して確定ボタンを隠す
             _clearVolumeDisplay();
+            _isSealConfirmed = true;   // 次回calcVolumeは_lastCalcVolumeを返す
+            // 確定後も体積数値を表示し続ける
+            if (_lastCalcVolume >= 0) {
+                document.getElementById('result').textContent = _lastCalcVolume.toFixed(3);
+            }
             toast('穴埋めを確定したよ ✓');
         };
 
@@ -5379,7 +5417,7 @@ if (changed) {
          最新版チェック
          ═══════════════════════════════════════════════ -->
     <script>
-        const _CURRENT_VERSION = 'v1.6019';
+        const _CURRENT_VERSION = 'v1.6021';
         const _REMOTE_URL = 'https://osawa99999.github.io/VolChe/index.html';
 
         // ボタンを永続的に無効化するヘルパー
