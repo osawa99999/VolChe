@@ -85,6 +85,18 @@
   - 外側セル判定：グリッド境界からのBFS flood-fill → 外側=OUTSIDE, 内側穴=INSIDE_HOLE
   - sealHolesはボクセル化前に事前実行 → カルデラ穴をボクセル化前に閉じる
 
+  ─ v1.6023 修正 ─
+  - buildBottomCap を凸包(convexHull2D)からouterLoop+ear-clipping方式に変更
+      L字・コの字など非凸形状の底面も正確に三角分割できるようになった
+      earClip2D 関数を新規追加
+      convexHull2D 関数を削除
+  - 最新版チェックUI をボタンから小テキスト表示に変更
+      起動時→「確認中...」→最新版「最新版です」/オフライン「オフラインです」
+      新バージョンあり→confirmダイアログ→DL or 「最新版です」のまま
+      checkUpdateBtn 廃止・_disableUpdateBtn 廃止
+      updateStatus div を新設（font-size:11px, color:var(--text-dim), opacity:0.7）
+      drop-overlay の stopPropagation 除外コードも不要になり削除
+
   ─ v1.6022 修正 ─
   - 起動時にバージョン自動チェックを実行（ボタン押し不要）
       → 最新版あり → confirmダイアログ → Yes: DL / No: そのまま
@@ -289,7 +301,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <link rel="manifest" href="./manifest.json">
-    <title>VolChe - Volume Checker v1.6022</title>
+    <title>VolChe - Volume Checker v1.6023</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -1302,15 +1314,13 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6022</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6023</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB / OBJ ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:8px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
             <div style="margin-top:6px; font-size:11px; color:var(--warn); font-family:var(--mono); line-height:1.5; opacity:0.85;">⚠ OBJは読み込みに時間がかかる場合があります</div>
-            <!-- 最新版確認ボタン -->
-            <div style="margin-top:14px;">
-                <button id="checkUpdateBtn" style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.38); border-radius:4px; color:var(--text); font-family:var(--mono); font-size:15px; padding:9px 22px; cursor:pointer; letter-spacing:0.08em; touch-action:manipulation;">🔄 最新版を確認する</button>
-            </div>
+            <!-- バージョン状態表示（ボタン廃止・自動チェック結果のみ表示） -->
+            <div id="updateStatus" style="margin-top:12px; font-size:11px; color:var(--text-dim); font-family:var(--mono); letter-spacing:0.06em; min-height:1.4em; opacity:0.7;"></div>
             <div style="margin-top:12px; opacity:0.6; width:70px; margin-left:auto; margin-right:auto;">
                 <svg viewBox="0 0 203.7059 79.468788" xmlns="http://www.w3.org/2000/svg">
                     <g transform="translate(-3.5936313,-112.12337)">
@@ -1363,7 +1373,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6022</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6023</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
@@ -2279,98 +2289,145 @@
 
         // XZ平面上の2D凸包（Graham scan）
         // points: [[x,z], ...] の配列 → 凸包の頂点配列を返す
-        function convexHull2D(points) {
-            if (points.length < 3) return points.slice();
+        // ══════════════════════════════════════════════════════════════════
+        // ear-clipping 2D 三角分割
+        // poly: [[x,z], ...] の多角形（CCW/CW どちらも可）
+        // 戻り値: [[i0,i1,i2], ...] のインデックス配列
+        // ══════════════════════════════════════════════════════════════════
+        function earClip2D(poly) {
+            const n = poly.length;
+            if (n < 3) return [];
+            if (n === 3) return [[0, 1, 2]];
 
-            // 最も下（Z最小）、同値なら左（X最小）の点をピボットに
-            let si = 0;
-            for (let i = 1; i < points.length; i++) {
-                if (points[i][1] < points[si][1] ||
-                    (points[i][1] === points[si][1] && points[i][0] < points[si][0])) {
-                    si = i;
-                }
+            const cross2D = (o, a, b) =>
+                (a[0]-o[0])*(b[1]-o[1]) - (a[1]-o[1])*(b[0]-o[0]);
+
+            // 面積符号でCCW判定（正=CCW）
+            let area = 0;
+            for (let i = 0; i < n; i++) {
+                const j = (i+1) % n;
+                area += poly[i][0]*poly[j][1] - poly[j][0]*poly[i][1];
             }
-            const pivot = points[si];
+            // CWならインデックスを逆順にしてCCW扱い
+            let remaining = area > 0
+                ? Array.from({length: n}, (_, i) => i)
+                : Array.from({length: n}, (_, i) => n-1-i);
 
-            // ピボット以外を極角でソート（同角なら距離近い順）
-            const others = points.filter((_, i) => i !== si);
-            others.sort((a, b) => {
-                const angA = Math.atan2(a[1] - pivot[1], a[0] - pivot[0]);
-                const angB = Math.atan2(b[1] - pivot[1], b[0] - pivot[0]);
-                if (Math.abs(angA - angB) > 1e-10) return angA - angB;
-                const dA = (a[0]-pivot[0])**2 + (a[1]-pivot[1])**2;
-                const dB = (b[0]-pivot[0])**2 + (b[1]-pivot[1])**2;
-                return dA - dB;
-            });
+            // 点Pが三角形(a,b,c)の内側にあるか（CCW前提）
+            const pointInTriangle = (p, a, b, c) => {
+                const d1 = cross2D(poly[a], poly[b], p);
+                const d2 = cross2D(poly[b], poly[c], p);
+                const d3 = cross2D(poly[c], poly[a], p);
+                const hasNeg = d1<-1e-10 || d2<-1e-10 || d3<-1e-10;
+                const hasPos = d1> 1e-10 || d2> 1e-10 || d3> 1e-10;
+                return !(hasNeg && hasPos);
+            };
 
-            // 外積（反時計回り判定）
-            const cross = (o, a, b) =>
-                (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+            const result = [];
+            let maxIter = n * n * 2;
+            let i = 0;
+            while (remaining.length > 3 && maxIter-- > 0) {
+                const len = remaining.length;
+                const iPrev = remaining[(i-1+len) % len];
+                const iCurr = remaining[i % len];
+                const iNext = remaining[(i+1) % len];
 
-            const hull = [pivot];
-            for (const p of others) {
-                while (hull.length >= 2 && cross(hull[hull.length-2], hull[hull.length-1], p) <= 0) {
-                    hull.pop();
+                // 凸頂点（左折り）かどうか
+                if (cross2D(poly[iPrev], poly[iCurr], poly[iNext]) > 1e-10) {
+                    // 他の頂点が内部に無いか確認
+                    let isEar = true;
+                    for (let j = 0; j < len; j++) {
+                        const v = remaining[j];
+                        if (v === iPrev || v === iCurr || v === iNext) continue;
+                        if (pointInTriangle(poly[v], iPrev, iCurr, iNext)) {
+                            isEar = false;
+                            break;
+                        }
+                    }
+                    if (isEar) {
+                        result.push([iPrev, iCurr, iNext]);
+                        remaining.splice(i % len, 1);
+                        i = Math.max(0, i - 1);
+                        continue;
+                    }
                 }
-                hull.push(p);
+                i = (i + 1) % remaining.length;
             }
-            return hull;
+            if (remaining.length === 3) {
+                result.push([remaining[0], remaining[1], remaining[2]]);
+            }
+            return result;
         }
 
-        // 底面キャップ BufferGeometry を生成
+        // ══════════════════════════════════════════════════════════════════
+        // 底面キャップ BufferGeometry を生成（outerLoop + ear-clipping）
         // geo: ワールド座標済み merged BufferGeometry
-        // 戻り値: non-indexed BufferGeometry（三角形ファン）または null
+        // 凸包ではなく実際の境界ループを使うため L字・コの字にも対応
+        // 戻り値: non-indexed BufferGeometry または null
+        // ══════════════════════════════════════════════════════════════════
         function buildBottomCap(geo) {
-            const pos = geo.attributes.position;
+            const pos0 = geo.attributes.position;
+
+            // groundY = 全頂点のY最小値
             let groundY = Infinity;
-            const xzPoints = [];
-
-            for (let i = 0; i < pos.count; i++) {
-                const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
-                if (!isFinite(x) || !isFinite(y) || !isFinite(z)) continue;
-                if (y < groundY) groundY = y;
-                xzPoints.push([x, z]);
+            for (let i = 0; i < pos0.count; i++) {
+                const y = pos0.getY(i);
+                if (isFinite(y) && y < groundY) groundY = y;
             }
+            if (!isFinite(groundY)) { console.warn('[buildBottomCap] groundY取得失敗'); return null; }
 
-            if (!isFinite(groundY) || xzPoints.length < 3) {
-                console.warn('[buildBottomCap] 有効頂点不足');
+            // BBox → eps
+            let minX=Infinity, maxX=-Infinity, minZ=Infinity, maxZ=-Infinity;
+            for (let i = 0; i < pos0.count; i++) {
+                const x=pos0.getX(i), z=pos0.getZ(i);
+                if(!isFinite(x)) continue;
+                if(x<minX)minX=x; if(x>maxX)maxX=x;
+                if(z<minZ)minZ=z; if(z>maxZ)maxZ=z;
+            }
+            const maxExtent = Math.max(maxX-minX, maxZ-minZ) || 1;
+            const eps = Math.max(maxExtent * 5e-4, 1e-7);
+
+            // sealHolesと同じパイプラインでouterLoopを取得
+            let outerLoop = null;
+            try {
+                const {V, I} = weldForSeal(geo, eps);
+                const bEdges = findBoundaryEdges(I);
+                if (bEdges.size === 0) { console.warn('[buildBottomCap] 境界エッジなし'); return null; }
+                const loops = buildBoundaryLoops(bEdges);
+                if (loops.length === 0) { console.warn('[buildBottomCap] ループなし'); return null; }
+                const classified = classifyLoops(loops, V);
+                outerLoop = classified.outerLoop;
+
+                if (!outerLoop || outerLoop.length < 3) {
+                    console.warn('[buildBottomCap] outerLoop取得失敗');
+                    return null;
+                }
+
+                // outerLoopの頂点をXZ平面に投影
+                const poly = outerLoop.map(vi => [V[vi*3], V[vi*3+2]]);
+
+                // ear-clipping で三角分割
+                const tris = earClip2D(poly);
+                if (tris.length === 0) { console.warn('[buildBottomCap] ear-clipping失敗'); return null; }
+
+                // groundY に配置（下向き法線 = Y- 外向きになるよう頂点順逆転）
+                const verts = [];
+                for (const [i0, i1, i2] of tris) {
+                    verts.push(poly[i0][0], groundY, poly[i0][1]);
+                    verts.push(poly[i2][0], groundY, poly[i2][1]);
+                    verts.push(poly[i1][0], groundY, poly[i1][1]);
+                }
+
+                const capGeo = new THREE.BufferGeometry();
+                capGeo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+                capGeo.computeVertexNormals();
+                console.log(`[buildBottomCap] groundY=${groundY.toFixed(4)}, loop=${outerLoop.length}verts, tris=${tris.length}`);
+                return capGeo;
+
+            } catch(e) {
+                console.warn('[buildBottomCap] 失敗:', e);
                 return null;
             }
-
-            // 重複間引き（eps=1e-4）してから凸包
-            const eps = 1e-4;
-            const uniq = [];
-            const seen = new Set();
-            for (const [x, z] of xzPoints) {
-                const key = `${(x/eps).toFixed(0)}_${(z/eps).toFixed(0)}`;
-                if (!seen.has(key)) { seen.add(key); uniq.push([x, z]); }
-            }
-
-            const hull = convexHull2D(uniq);
-            if (hull.length < 3) {
-                console.warn('[buildBottomCap] 凸包頂点不足');
-                return null;
-            }
-
-            // 重心
-            let cx = 0, cz = 0;
-            for (const [x, z] of hull) { cx += x; cz += z; }
-            cx /= hull.length; cz /= hull.length;
-
-            // fan triangulation（重心から放射）
-            const verts = [];
-            for (let i = 0; i < hull.length; i++) {
-                const [x1, z1] = hull[i];
-                const [x2, z2] = hull[(i + 1) % hull.length];
-                // 下向き法線（外向き）になるよう順序: 重心→p2→p1
-                verts.push(cx, groundY, cz, x2, groundY, z2, x1, groundY, z1);
-            }
-
-            const capGeo = new THREE.BufferGeometry();
-            capGeo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
-            capGeo.computeVertexNormals();
-            console.log(`[buildBottomCap] groundY=${groundY.toFixed(4)}, hull=${hull.length}verts, tris=${hull.length}`);
-            return capGeo;
         }
 
         let belowHighlightMesh = null;
@@ -5304,9 +5361,7 @@ if (changed) {
         // ── ファイル選択ダイアログ（スマホ・タブレット向け） ──
         const fileInput = document.getElementById('file-input');
         // D&Dオーバーレイのタップでファイル選択を開く
-        // ★ checkUpdateBtnのクリックはバブリングで来るので除外
         dropOverlay.addEventListener('click', (e) => {
-            if (e.target.closest('#checkUpdateBtn')) return;
             fileInput.click();
         });
         fileInput.addEventListener('change', e => {
@@ -5455,27 +5510,18 @@ if (changed) {
          最新版チェック
          ═══════════════════════════════════════════════ -->
     <script>
-        const _CURRENT_VERSION = 'v1.6022';
+        const _CURRENT_VERSION = 'v1.6023';
         const _REMOTE_URL = 'https://osawa99999.github.io/VolChe/index.html';
 
-        // ボタンを永続的に無効化するヘルパー
-        function _disableUpdateBtn(msg) {
-            const btn = document.getElementById('checkUpdateBtn');
-            btn.textContent = msg;
-            btn.disabled = true;
-            btn.style.borderColor = 'rgba(255,255,255,0.1)';
-            btn.style.color = 'rgba(255,255,255,0.2)';
-            btn.style.cursor = 'default';
+        // updateStatus テキストを更新するヘルパー
+        function _setUpdateStatus(msg) {
+            const el = document.getElementById('updateStatus');
+            if (el) el.textContent = msg;
         }
 
-        // 起動時自動バージョンチェック（ボタン押し不要）
+        // 起動時自動バージョンチェック
         async function _autoCheckUpdate() {
-            const btn = document.getElementById('checkUpdateBtn');
-            btn.textContent = '🔄 確認中...';
-            btn.disabled = true;
-            btn.style.borderColor = 'rgba(255,255,255,0.1)';
-            btn.style.color = 'rgba(255,255,255,0.3)';
-
+            _setUpdateStatus('確認中...');
             try {
                 const res = await fetch(_REMOTE_URL, {
                     cache: 'no-store',
@@ -5487,15 +5533,14 @@ if (changed) {
                 const match = html.match(/VolChe - Volume Checker (v[\d.]+)/);
                 const remoteVersion = match ? match[1] : null;
 
-                if (!remoteVersion) throw new Error('バージョン情報が取得できなかったよ');
+                if (!remoteVersion) throw new Error('バージョン情報取得失敗');
 
                 if (remoteVersion === _CURRENT_VERSION) {
-                    // 最新版 → ボタンをそのまま無効化表示
-                    _disableUpdateBtn('✅ 最新版だよ！');
+                    // 既に最新版
+                    _setUpdateStatus('最新版です');
                 } else {
-                    // 新しいバージョンあり → confirmダイアログ
-                    _disableUpdateBtn(`🆕 ${remoteVersion} に更新できるよ`);
-                    // confirmはUIスレッドをブロックするので少し遅らせる
+                    // 新しいバージョンあり → confirm → DL or そのまま
+                    _setUpdateStatus('最新版です');
                     setTimeout(async () => {
                         const ok = confirm(
                             `🎉 新しいバージョンがあるよ！\n\n` +
@@ -5511,28 +5556,16 @@ if (changed) {
                             }
                             window.location.href = _REMOTE_URL + '?nocache=' + Date.now();
                         }
-                        // No選択 → そのまま（ボタンはすでに無効化済み）
                     }, 300);
                 }
             } catch (e) {
-                // 通信失敗（オフライン等）→ ボタンをそのまま（無効化しない）
-                btn.textContent = '🔄 最新版を確認する';
-                btn.disabled = false;
-                btn.style.borderColor = '';
-                btn.style.color = '';
+                // オフライン or 通信失敗
+                _setUpdateStatus('オフラインです');
                 console.log('[UpdateCheck] オフラインまたはエラー:', e.message);
             }
         }
 
-        // ボタンは手動でも押せる（オフライン時の再試行用）
-        document.getElementById('checkUpdateBtn').addEventListener('click', async (e) => {
-            e.stopPropagation();
-            const btn = document.getElementById('checkUpdateBtn');
-            if (btn.disabled) return;
-            await _autoCheckUpdate();
-        });
-
-        // 起動時に自動実行（少し遅らせてUIが安定してから）
+        // 起動時に自動実行（UIが安定してから）
         setTimeout(_autoCheckUpdate, 1500);
     </script>
 
