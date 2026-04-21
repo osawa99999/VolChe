@@ -6,7 +6,7 @@
    ★ バージョンアップ時は CACHE_NAME を変えるだけでOK
    ============================================================ */
 
-const CACHE_NAME = 'volche-v1.6011';
+const CACHE_NAME = 'volche-v1.6012';
 
 // ── インストール: 本体を事前キャッシュ ──────────────────────
 self.addEventListener('install', event => {
