@@ -7,8 +7,8 @@
     FBX / GLB / OBJ 形式で体積を計算するためのツール。
 
   【バージョンルール】
-    v1.6009 以降: 変更のたびに 0.0001 ずつインクリメント（3箇所更新）
-    例: v1.6009 → v1.6009
+    v1.6010 以降: 変更のたびに 0.0001 ずつインクリメント（3箇所更新）
+    例: v1.6010 → v1.6010
 
   【Claude への引き継ぎメモ】
 
@@ -84,6 +84,10 @@
   - autoResetRollKeepCamera：_isVoxelized=trueの場合_clearVolumeDisplayをスキップ
   - 外側セル判定：グリッド境界からのBFS flood-fill → 外側=OUTSIDE, 内側穴=INSIDE_HOLE
   - sealHolesはボクセル化前に事前実行 → カルデラ穴をボクセル化前に閉じる
+
+  ─ v1.6010 修正 ─
+  - 確定ボタン: オレンジパッチ（穴断面）がない場合は表示しない
+  - 水密青プレビュー: color 0x0055ff, opacity 0.35 に変更（より視認しやすく）
 
   ─ v1.6009 追加 ─
   - 【計算後の視覚フィードバック強化】
@@ -206,7 +210,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <link rel="manifest" href="./manifest.json">
-    <title>VolChe - Volume Checker v1.6009</title>
+    <title>VolChe - Volume Checker v1.6010</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -1219,7 +1223,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6009</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6010</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB / OBJ ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:8px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -1276,7 +1280,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6009</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6010</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
@@ -3690,7 +3694,21 @@
             }
 
             // ★ 表示専用: Gemini方式で全バウンダリ穴を視覚パッチで塞ぐ（計算不変・色統一）
-            try { showAllHolePatches(mergedGeo); } catch(e) { console.warn('[showAllHolePatches] skip:', e); }
+            // オレンジパッチ（穴断面）があった場合のみ確定ボタンを表示するため戻り値を確認
+            let _hasOrangePatches = false;
+            try {
+                showAllHolePatches(mergedGeo);
+                // allHolePatchesグループ内にオレンジメッシュが存在するか確認
+                const _pg = scene.getObjectByName('allHolePatches');
+                if (_pg) {
+                    _pg.traverse(c => {
+                        if (c.isMesh && c.material?.color) {
+                            const col = c.material.color;
+                            if (col.r > 0.8 && col.g < 0.6) _hasOrangePatches = true; // オレンジ判定
+                        }
+                    });
+                }
+            } catch(e) { console.warn('[showAllHolePatches] skip:', e); }
 
             // ★ 水密化プレビュー: sealedGeoを半透明青で表示（「ここが計算対象」の視覚化）
             const oldBlue = scene.getObjectByName('sealedPreview');
@@ -3699,16 +3717,17 @@
                 const blueGeo = sealedGeo.index ? sealedGeo.toNonIndexed() : sealedGeo.clone();
                 blueGeo.computeVertexNormals();
                 const blueMesh = new THREE.Mesh(blueGeo, new THREE.MeshPhongMaterial({
-                    color: 0x0088ff, transparent: true, opacity: 0.18,
-                    side: THREE.DoubleSide, depthWrite: false, shininess: 0
+                    color: 0x0055ff, transparent: true, opacity: 0.35,
+                    side: THREE.DoubleSide, depthWrite: false, shininess: 10
                 }));
                 blueMesh.name = 'sealedPreview';
                 blueMesh.renderOrder = 0;
                 scene.add(blueMesh);
             } catch(e) { console.warn('[sealedPreview] skip:', e); }
 
-            // ★ 確定ボタンエリアを表示
-            document.getElementById('seal-confirm-area').style.display = 'block';
+            // ★ 確定ボタンエリア: オレンジパッチがある場合のみ表示
+            document.getElementById('seal-confirm-area').style.display =
+                _hasOrangePatches ? 'block' : 'none';
 
             // ★ 体積計算（穴塞ぎ済みジオメトリ）
             let vol = 0;
