@@ -85,6 +85,14 @@
   - 外側セル判定：グリッド境界からのBFS flood-fill → 外側=OUTSIDE, 内側穴=INSIDE_HOLE
   - sealHolesはボクセル化前に事前実行 → カルデラ穴をボクセル化前に閉じる
 
+  ─ v1.6018 修正 ─
+  - 「最新版を確認する」ボタンをさらに拡大（約25%）
+    font-size: 12px → 15px / padding: 7px 18px → 9px 22px
+
+  ─ v1.6017 修正 ─
+  - ロード画面「最新版を確認する」ボタンを視認性改善
+    color: text-dim → var(--text) / background: 0.05 → 0.1 / border: 0.2 → 0.38 / font-size: 11px → 12px
+
   ─ v1.6016 修正 ─
   - setMode 呼び出し時に sealedPreview（青半透明）と allHolePatches を除去
   - 体積計算後に他のボタンを押すと青いポリゴンが残る問題を修正
@@ -246,7 +254,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <link rel="manifest" href="./manifest.json">
-    <title>VolChe - Volume Checker v1.6016</title>
+    <title>VolChe - Volume Checker v1.6018</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -1259,14 +1267,14 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6016</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6018</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB / OBJ ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:8px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
             <div style="margin-top:6px; font-size:11px; color:var(--warn); font-family:var(--mono); line-height:1.5; opacity:0.85;">⚠ OBJは読み込みに時間がかかる場合があります</div>
             <!-- 最新版確認ボタン -->
             <div style="margin-top:14px;">
-                <button id="checkUpdateBtn" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.2); border-radius:4px; color:var(--text-dim); font-family:var(--mono); font-size:11px; padding:6px 16px; cursor:pointer; letter-spacing:0.08em; touch-action:manipulation;">🔄 最新版を確認する</button>
+                <button id="checkUpdateBtn" style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.38); border-radius:4px; color:var(--text); font-family:var(--mono); font-size:15px; padding:9px 22px; cursor:pointer; letter-spacing:0.08em; touch-action:manipulation;">🔄 最新版を確認する</button>
             </div>
             <div style="margin-top:12px; opacity:0.6; width:70px; margin-left:auto; margin-right:auto;">
                 <svg viewBox="0 0 203.7059 79.468788" xmlns="http://www.w3.org/2000/svg">
@@ -1320,7 +1328,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6016</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6018</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
@@ -5363,7 +5371,7 @@ if (changed) {
          最新版チェック
          ═══════════════════════════════════════════════ -->
     <script>
-        const _CURRENT_VERSION = 'v1.6016';
+        const _CURRENT_VERSION = 'v1.6018';
         const _REMOTE_URL = 'https://osawa99999.github.io/VolChe/index.html';
 
         // ボタンを永続的に無効化するヘルパー
