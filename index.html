@@ -85,6 +85,19 @@
   - 外側セル判定：グリッド境界からのBFS flood-fill → 外側=OUTSIDE, 内側穴=INSIDE_HOLE
   - sealHolesはボクセル化前に事前実行 → カルデラ穴をボクセル化前に閉じる
 
+  ─ v1.6022 修正 ─
+  - 起動時にバージョン自動チェックを実行（ボタン押し不要）
+      → 最新版あり → confirmダイアログ → Yes: DL / No: そのまま
+      → 最新版なし → ボタンに「✅ 最新版だよ！」表示してそのまま
+      → 通信失敗（オフライン）→ ボタンを復活させて再試行可能に
+  - autoResetRollKeepCameraでもsealedPreview（青メッシュ）を必ず消すように修正
+      ボクセル化済み(_isVoxelized=true)の場合も青プレビュー・オレンジパッチを除去
+  - undo()にsealedPreview削除・removeAllHolePatches・seal-confirm-area非表示を追加
+      「↩ 戻す」ボタン押下後に青メッシュ・オレンジパッチ・確定ボタンが残る問題を修正
+  - 計算後のメッセージ改行をデバイス別に変更
+      iPhone/iPad(pointer:coarse): 「🔵 青 = 計算範囲 / 🟠 オレンジ = 穴埋め部分\n確定するとオレンジが正規メッシュになるよ」
+      PC/iPad横: 「🔵 青 = 計算範囲\n🟠 オレンジ = 穴埋め部分\n確定するとオレンジが正規メッシュになるよ」
+
   ─ v1.6021 修正 ─
   - _isSealConfirmed / _lastCalcVolume のリセット漏れを修正
   - _clearVolumeDisplay() にフラグリセットを追加
@@ -276,7 +289,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <link rel="manifest" href="./manifest.json">
-    <title>VolChe - Volume Checker v1.6021</title>
+    <title>VolChe - Volume Checker v1.6022</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -1289,7 +1302,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6021</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6022</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB / OBJ ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:8px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -1350,7 +1363,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6021</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6022</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
@@ -1379,10 +1392,7 @@
             </div>
             <!-- 穴埋め確定ボタン（計算後に表示） -->
             <div id="seal-confirm-area" style="display:none; margin-bottom:6px;">
-                <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:5px; line-height:1.5;">
-                    🔵 青 = 計算範囲 / 🟠 オレンジ = 穴埋め部分<br>
-                    確定するとオレンジが正規メッシュになるよ
-                </div>
+                <div id="seal-confirm-msg" style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:5px; line-height:1.5;"></div>
                 <div style="display:flex; gap:5px;">
                     <button class="btn" id="sealConfirmBtn" style="flex:1; background:rgba(57,255,143,0.12); border-color:var(--accent); color:var(--accent); font-weight:700; font-size:13px;">✔ 確定する</button>
                     <button class="btn" id="sealCancelBtn" style="flex:1; font-size:13px;">✕ キャンセル</button>
@@ -2577,6 +2587,12 @@
             });
             _isVoxelized = false;  // undo後はボクセル化フラグをリセット
             _isSealConfirmed = false; _lastCalcVolume = -1; // 穴埋め確定フラグもリセット
+            // 青いプレビュー・オレンジパッチ・確定ボタンを消す
+            const _sp = scene.getObjectByName('sealedPreview');
+            if (_sp) scene.remove(_sp);
+            removeAllHolePatches();
+            const _sca = document.getElementById('seal-confirm-area');
+            if (_sca) _sca.style.display = 'none';
             updateUndoBtn();
             updateVertCount();
             clearWireframe();
@@ -3956,8 +3972,21 @@
             } catch(e) { console.warn('[sealedPreview] skip:', e); }
 
             // ★ 確定ボタンエリア: オレンジパッチがある場合のみ表示
-            document.getElementById('seal-confirm-area').style.display =
-                _hasOrangePatches ? 'block' : 'none';
+            if (_hasOrangePatches) {
+                // デバイス別メッセージ（iPhone/iPadは1行目/2行目まとめ、PC/iPad横は3行）
+                const _isIphoneOrIpad = window.matchMedia('(pointer:coarse)').matches;
+                const _sealMsg = document.getElementById('seal-confirm-msg');
+                if (_sealMsg) {
+                    if (_isIphoneOrIpad) {
+                        _sealMsg.innerHTML = '🔵 青 = 計算範囲 / 🟠 オレンジ = 穴埋め部分<br>確定するとオレンジが正規メッシュになるよ';
+                    } else {
+                        _sealMsg.innerHTML = '🔵 青 = 計算範囲<br>🟠 オレンジ = 穴埋め部分<br>確定するとオレンジが正規メッシュになるよ';
+                    }
+                }
+                document.getElementById('seal-confirm-area').style.display = 'block';
+            } else {
+                document.getElementById('seal-confirm-area').style.display = 'none';
+            }
 
             // ★ 体積計算（穴塞ぎ済みジオメトリ）
             let vol = 0;
@@ -4017,7 +4046,16 @@
             _bakeAndCenter();
             // ★ カメラは動かさない
             // ボクセル化済みの場合は体積表示をリセットしない（_voxelVolumeを保持）
-            if (!_isVoxelized) _clearVolumeDisplay();
+            if (!_isVoxelized) {
+                _clearVolumeDisplay();
+            } else {
+                // ボクセル化済みでも青いプレビューは消す
+                const _sp = scene.getObjectByName('sealedPreview');
+                if (_sp) scene.remove(_sp);
+                removeAllHolePatches();
+                const _sca = document.getElementById('seal-confirm-area');
+                if (_sca) _sca.style.display = 'none';
+            }
         }
 
         // ─────────────────────────────────────────────
@@ -5417,7 +5455,7 @@ if (changed) {
          最新版チェック
          ═══════════════════════════════════════════════ -->
     <script>
-        const _CURRENT_VERSION = 'v1.6021';
+        const _CURRENT_VERSION = 'v1.6022';
         const _REMOTE_URL = 'https://osawa99999.github.io/VolChe/index.html';
 
         // ボタンを永続的に無効化するヘルパー
@@ -5430,10 +5468,9 @@ if (changed) {
             btn.style.cursor = 'default';
         }
 
-        document.getElementById('checkUpdateBtn').addEventListener('click', async (e) => {
-            e.stopPropagation(); // drop-overlayへの伝播を阻止
+        // 起動時自動バージョンチェック（ボタン押し不要）
+        async function _autoCheckUpdate() {
             const btn = document.getElementById('checkUpdateBtn');
-            // 押した瞬間にボタンをグレー無効化（2度押し防止）
             btn.textContent = '🔄 確認中...';
             btn.disabled = true;
             btn.style.borderColor = 'rgba(255,255,255,0.1)';
@@ -5453,34 +5490,50 @@ if (changed) {
                 if (!remoteVersion) throw new Error('バージョン情報が取得できなかったよ');
 
                 if (remoteVersion === _CURRENT_VERSION) {
-                    // 最新版 → 永続グレー無効化
+                    // 最新版 → ボタンをそのまま無効化表示
                     _disableUpdateBtn('✅ 最新版だよ！');
                 } else {
-                    // 新しいバージョンあり！
-                    const ok = confirm(
-                        `🎉 新しいバージョンがあるよ！\n\n` +
-                        `現在: ${_CURRENT_VERSION}\n` +
-                        `最新: ${remoteVersion}\n\n` +
-                        `今すぐ更新する？\n` +
-                        `（キャッシュを削除してリロードするよ）`
-                    );
-                    if (ok) {
-                        if ('caches' in window) {
-                            const keys = await caches.keys();
-                            await Promise.all(keys.map(k => caches.delete(k)));
+                    // 新しいバージョンあり → confirmダイアログ
+                    _disableUpdateBtn(`🆕 ${remoteVersion} に更新できるよ`);
+                    // confirmはUIスレッドをブロックするので少し遅らせる
+                    setTimeout(async () => {
+                        const ok = confirm(
+                            `🎉 新しいバージョンがあるよ！\n\n` +
+                            `現在: ${_CURRENT_VERSION}\n` +
+                            `最新: ${remoteVersion}\n\n` +
+                            `今すぐ更新する？\n` +
+                            `（キャッシュを削除してリロードするよ）`
+                        );
+                        if (ok) {
+                            if ('caches' in window) {
+                                const keys = await caches.keys();
+                                await Promise.all(keys.map(k => caches.delete(k)));
+                            }
+                            window.location.href = _REMOTE_URL + '?nocache=' + Date.now();
                         }
-                        window.location.href = _REMOTE_URL + '?nocache=' + Date.now();
-                    } else {
-                        // キャンセルしても永続グレー無効化
-                        _disableUpdateBtn('🔄 最新版を確認する');
-                    }
+                        // No選択 → そのまま（ボタンはすでに無効化済み）
+                    }, 300);
                 }
             } catch (e) {
-                // 通信失敗 → 永続グレー無効化
-                _disableUpdateBtn('⚠ 確認できなかったよ！');
-                console.warn('[UpdateCheck]', e);
+                // 通信失敗（オフライン等）→ ボタンをそのまま（無効化しない）
+                btn.textContent = '🔄 最新版を確認する';
+                btn.disabled = false;
+                btn.style.borderColor = '';
+                btn.style.color = '';
+                console.log('[UpdateCheck] オフラインまたはエラー:', e.message);
             }
+        }
+
+        // ボタンは手動でも押せる（オフライン時の再試行用）
+        document.getElementById('checkUpdateBtn').addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const btn = document.getElementById('checkUpdateBtn');
+            if (btn.disabled) return;
+            await _autoCheckUpdate();
         });
+
+        // 起動時に自動実行（少し遅らせてUIが安定してから）
+        setTimeout(_autoCheckUpdate, 1500);
     </script>
 
     <!-- ═══════════════════════════════════════════════
