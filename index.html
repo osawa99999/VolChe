@@ -85,6 +85,12 @@
   - 外側セル判定：グリッド境界からのBFS flood-fill → 外側=OUTSIDE, 内側穴=INSIDE_HOLE
   - sealHolesはボクセル化前に事前実行 → カルデラ穴をボクセル化前に閉じる
 
+  ─ v1.6019 修正 ─
+  - ヘッダーコメントの古い記述を現状に合わせて修正
+    ・sealHoles注釈: 底面処理の役割がbuildBottomCapに移ったことを明記
+    ・v1.6002注釈: 「分類なし」→ v1.6004以降の色分け仕様（グレー/オレンジ）を反映
+    ・v1.6002注釈: opacity:0.6 → v1.6004以降の実際値（0.55/0.85）を反映
+
   ─ v1.6018 修正 ─
   - 「最新版を確認する」ボタンをさらに拡大（約25%）
     font-size: 12px → 15px / padding: 7px 18px → 9px 22px
@@ -193,9 +199,10 @@
   - showAllHolePatches(mergedGeo): Gemini方式で全バウンダリ穴を視覚的に塞ぐ
       ① エッジカウント方式でバウンダリエッジを全抽出（count===1）
       ② 連結コンポーネント（島）ごとにDFS探索
-      ③ 各島を独立してファンフィルでパッチ化（分類なし→底面も漏れない）
+      ③ 各島をファンフィルでパッチ化
+         ※v1.6004以降: XZ面積最大の島=底面（グレー opacity:0.55）
+                        それ以外=穴断面（オレンジ opacity:0.85）に色分け
       ④ フィルタ: 頂点3未満 / Y幅0.05m未満（平板ノイズ）は除外
-      ⑤ 表示専用グレー半透明メッシュ（color:0x888888, opacity:0.6）
       scene内のオブジェクト名: 'allHolePatches'
       計算ロジックには一切触れない
   - removeAllHolePatches(): 'allHolePatches' を scene から除去
@@ -207,10 +214,11 @@
   - ウェルディング→バウンダリエッジ→ループ構築→ループ分類→ファンフィル（法線整合）
   - buildOuterCap は使用しない（VolCheはY=0正規化済みのため不要かつ危険）
   - innerHoles のみファンフィルでキャップ → mergeしてdivergence定理で体積計算
-  - 底面(outerLoop)はVolCheの既存calcVolumeが扱うため、sealHolesでは内側穴のみ処理
+  - 底面(outerLoop)は v1.6014 以降 buildBottomCap が calcVolume 前に処理するため
+    sealHoles は切断面など内側穴のみを担当する設計に変更
   - silent=false: オレンジ不透明ポリゴン＋黄ワイヤーで穴塞ぎを視覚表示
-  - calcVolume: 穴塞ぎ後のジオメトリで体積計算（薄皮生成→体積計算の流れ）
-  - ボクセル化: sealHoles(silent=false)で穴塞ぎ表示後に高さマップ計算
+  - calcVolume: buildBottomCap → mergedWithCap → sealHoles → divergence定理
+  - ボクセル化: showAllHolePatches で視覚表示後に高さマップ計算
 
   ─ L= H= 表示 ─
   - #obj-size-display（view-panel内）
@@ -254,7 +262,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <link rel="manifest" href="./manifest.json">
-    <title>VolChe - Volume Checker v1.6018</title>
+    <title>VolChe - Volume Checker v1.6019</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -1267,7 +1275,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6018</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6019</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB / OBJ ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:8px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -1328,7 +1336,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6018</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6019</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
@@ -5371,7 +5379,7 @@ if (changed) {
          最新版チェック
          ═══════════════════════════════════════════════ -->
     <script>
-        const _CURRENT_VERSION = 'v1.6018';
+        const _CURRENT_VERSION = 'v1.6019';
         const _REMOTE_URL = 'https://osawa99999.github.io/VolChe/index.html';
 
         // ボタンを永続的に無効化するヘルパー
