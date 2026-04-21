@@ -15,7 +15,7 @@ self.addEventListener('install', event => {
         caches.open(CACHE_NAME)
             .then(cache => cache.addAll([
                 './',
-                './VolChe_v1_6011.html',
+                './index.html',
                 './manifest.json',
             ]))
             .then(() => self.skipWaiting())
