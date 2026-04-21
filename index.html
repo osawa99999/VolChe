@@ -85,6 +85,18 @@
   - 外側セル判定：グリッド境界からのBFS flood-fill → 外側=OUTSIDE, 内側穴=INSIDE_HOLE
   - sealHolesはボクセル化前に事前実行 → カルデラ穴をボクセル化前に閉じる
 
+  ─ v1.6015 修正 ─
+  - 体積計算時にオレンジパッチ（切断面）XZ面積が底面の30%超の場合
+    「不明な面が多くて正確な体積が出せないよ？\nボクセル化してみてね？」トーストを表示
+  - ボクセル化確定（simplifyApplyBtn）前に confirm ダイアログを追加
+    「ボクセル化を行うと体積が増える場合があります\nよろしいですか？」
+
+  ─ v1.6014 修正 ─
+  - 体積計算時に底面キャップ（XZ凸包 fan triangulation）を先生成
+  - buildBottomCap / convexHull2D 関数を追加
+  - sealHoles に底面キャップ付き mergedWithCap を渡すよう変更
+  - 矩形消去後の2面開口（底面＋切断面）でも正確な体積計算が可能に
+
   ─ v1.6013 修正 ─
   - 最新版確認ボタンを押した時にロード画面（ファイル選択）が開くバグを修正
   - checkUpdateBtn の click イベントに e.stopPropagation() を追加
@@ -229,7 +241,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <link rel="manifest" href="./manifest.json">
-    <title>VolChe - Volume Checker v1.6013</title>
+    <title>VolChe - Volume Checker v1.6015</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -1242,7 +1254,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6013</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6015</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB / OBJ ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:8px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -1303,7 +1315,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6013</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6015</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
@@ -2210,6 +2222,110 @@
             scene.add(group);
 
             console.log(`[showAllHolePatches] islands:${islands.length}, bottom:${bottomVerts.length/9}tris, holes:${holeVerts.length/9}tris`);
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        // 底面キャップ生成（体積計算前処理）
+        // 建設残土は重力があるため底面は必ず閉じた平面とみなす。
+        // XZ凸包 → groundY に fan triangulation でキャップを生成。
+        // sealHoles に渡す前にマージすることで、底面ループを事前に閉じ
+        // 切断面など残りの開口部のみ sealHoles が処理できるようにする。
+        // ══════════════════════════════════════════════════════════════════
+
+        // XZ平面上の2D凸包（Graham scan）
+        // points: [[x,z], ...] の配列 → 凸包の頂点配列を返す
+        function convexHull2D(points) {
+            if (points.length < 3) return points.slice();
+
+            // 最も下（Z最小）、同値なら左（X最小）の点をピボットに
+            let si = 0;
+            for (let i = 1; i < points.length; i++) {
+                if (points[i][1] < points[si][1] ||
+                    (points[i][1] === points[si][1] && points[i][0] < points[si][0])) {
+                    si = i;
+                }
+            }
+            const pivot = points[si];
+
+            // ピボット以外を極角でソート（同角なら距離近い順）
+            const others = points.filter((_, i) => i !== si);
+            others.sort((a, b) => {
+                const angA = Math.atan2(a[1] - pivot[1], a[0] - pivot[0]);
+                const angB = Math.atan2(b[1] - pivot[1], b[0] - pivot[0]);
+                if (Math.abs(angA - angB) > 1e-10) return angA - angB;
+                const dA = (a[0]-pivot[0])**2 + (a[1]-pivot[1])**2;
+                const dB = (b[0]-pivot[0])**2 + (b[1]-pivot[1])**2;
+                return dA - dB;
+            });
+
+            // 外積（反時計回り判定）
+            const cross = (o, a, b) =>
+                (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+
+            const hull = [pivot];
+            for (const p of others) {
+                while (hull.length >= 2 && cross(hull[hull.length-2], hull[hull.length-1], p) <= 0) {
+                    hull.pop();
+                }
+                hull.push(p);
+            }
+            return hull;
+        }
+
+        // 底面キャップ BufferGeometry を生成
+        // geo: ワールド座標済み merged BufferGeometry
+        // 戻り値: non-indexed BufferGeometry（三角形ファン）または null
+        function buildBottomCap(geo) {
+            const pos = geo.attributes.position;
+            let groundY = Infinity;
+            const xzPoints = [];
+
+            for (let i = 0; i < pos.count; i++) {
+                const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+                if (!isFinite(x) || !isFinite(y) || !isFinite(z)) continue;
+                if (y < groundY) groundY = y;
+                xzPoints.push([x, z]);
+            }
+
+            if (!isFinite(groundY) || xzPoints.length < 3) {
+                console.warn('[buildBottomCap] 有効頂点不足');
+                return null;
+            }
+
+            // 重複間引き（eps=1e-4）してから凸包
+            const eps = 1e-4;
+            const uniq = [];
+            const seen = new Set();
+            for (const [x, z] of xzPoints) {
+                const key = `${(x/eps).toFixed(0)}_${(z/eps).toFixed(0)}`;
+                if (!seen.has(key)) { seen.add(key); uniq.push([x, z]); }
+            }
+
+            const hull = convexHull2D(uniq);
+            if (hull.length < 3) {
+                console.warn('[buildBottomCap] 凸包頂点不足');
+                return null;
+            }
+
+            // 重心
+            let cx = 0, cz = 0;
+            for (const [x, z] of hull) { cx += x; cz += z; }
+            cx /= hull.length; cz /= hull.length;
+
+            // fan triangulation（重心から放射）
+            const verts = [];
+            for (let i = 0; i < hull.length; i++) {
+                const [x1, z1] = hull[i];
+                const [x2, z2] = hull[(i + 1) % hull.length];
+                // 下向き法線（外向き）になるよう順序: 重心→p2→p1
+                verts.push(cx, groundY, cz, x2, groundY, z2, x1, groundY, z1);
+            }
+
+            const capGeo = new THREE.BufferGeometry();
+            capGeo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+            capGeo.computeVertexNormals();
+            console.log(`[buildBottomCap] groundY=${groundY.toFixed(4)}, hull=${hull.length}verts, tris=${hull.length}`);
+            return capGeo;
         }
 
         let belowHighlightMesh = null;
@@ -3707,13 +3823,38 @@
                 mergedGeo = worldGeos[0].index ? worldGeos[0].toNonIndexed() : worldGeos[0];
             }
 
+            // ★ [底面キャップ先付け] 建設残土は底が空洞になりえないため、
+            //   XZ凸包 → groundY に底面をあらかじめ追加してから sealHoles に渡す。
+            //   これにより矩形消去後の2面開口（底面＋切断面）のうち底面を事前に閉じ、
+            //   sealHoles が切断面のみを処理できるようにする。
+            //   ※ bottomCap は計算用一時オブジェクト。正規メッシュには追加しない。
+            let mergedWithCap = mergedGeo;
+            try {
+                const bottomCap = buildBottomCap(mergedGeo);
+                if (bottomCap) {
+                    const toNonIdx = (g) => {
+                        const s = new THREE.BufferGeometry();
+                        const ni = g.index ? g.toNonIndexed() : g;
+                        s.setAttribute('position', ni.attributes.position.clone());
+                        return s;
+                    };
+                    const merged = BufferGeometryUtils.mergeGeometries([
+                        toNonIdx(mergedGeo), toNonIdx(bottomCap)
+                    ]);
+                    if (merged?.attributes?.position) mergedWithCap = merged;
+                }
+            } catch (e) {
+                console.warn('[bottomCap] 生成失敗、フォールバック:', e);
+            }
+
             // ★ sealHoles（Ananaiパイプライン）で穴を塞ぐ（視覚表示はshowAllHolePatchesに統一）
+            //   底面キャップ付き mergedWithCap を渡すことで切断面のみを sealHoles が処理する
             let sealedGeo;
             try {
-                sealedGeo = sealHoles(mergedGeo, true); // silent=true → オレンジ非表示（色統一のため）
+                sealedGeo = sealHoles(mergedWithCap, true); // silent=true → オレンジ非表示（色統一のため）
             } catch (e) {
                 console.warn('sealHoles failed:', e);
-                sealedGeo = mergedGeo;
+                sealedGeo = mergedWithCap;
             }
 
             // ★ 表示専用: Gemini方式で全バウンダリ穴を視覚パッチで塞ぐ（計算不変・色統一）
@@ -3721,15 +3862,29 @@
             let _hasOrangePatches = false;
             try {
                 showAllHolePatches(mergedGeo);
-                // allHolePatchesグループ内にオレンジメッシュが存在するか確認
+                // allHolePatchesグループ内のオレンジ・グレーの XZ 面積を取得して判定
                 const _pg = scene.getObjectByName('allHolePatches');
+                let _orangeXZArea = 0, _grayXZArea = 0;
                 if (_pg) {
                     _pg.traverse(c => {
                         if (c.isMesh && c.material?.color) {
                             const col = c.material.color;
-                            if (col.r > 0.8 && col.g < 0.6) _hasOrangePatches = true; // オレンジ判定
+                            const bb = new THREE.Box3().setFromObject(c);
+                            const area = (bb.max.x - bb.min.x) * (bb.max.z - bb.min.z);
+                            if (col.r > 0.8 && col.g < 0.6) {
+                                _hasOrangePatches = true;   // オレンジ判定
+                                _orangeXZArea += area;
+                            } else {
+                                _grayXZArea += area;        // グレー（底面）
+                            }
                         }
                     });
+                }
+                // オレンジ面積が底面の 30% 超 → 不明面が大きすぎる → ボクセル化を推奨
+                if (_hasOrangePatches && _grayXZArea > 0 && _orangeXZArea / _grayXZArea > 0.3) {
+                    setTimeout(() => toast(
+                        '不明な面が多くて正確な体積が出せないよ？\nボクセル化してみてね？', true
+                    ), 300);
                 }
             } catch(e) { console.warn('[showAllHolePatches] skip:', e); }
 
@@ -4660,7 +4815,10 @@ if (changed) {
             if (objectColorState !== 0) setObjectColor(0);
             _showSimplifyPreview();
         };
-        document.getElementById('simplifyApplyBtn').onclick = () => _applySimplify();
+        document.getElementById('simplifyApplyBtn').onclick = () => {
+            if (!confirm('ボクセル化を行うと体積が増える場合があります\nよろしいですか？')) return;
+            _applySimplify();
+        };
         // キャンセル：プレビューだけ消してvoxelizeモード継続
         document.getElementById('simplifyCancelBtn').onclick = () => _cancelSimplifyPreview();
         // 終了：voxelizeモードを完全終了
@@ -5193,7 +5351,7 @@ if (changed) {
          最新版チェック
          ═══════════════════════════════════════════════ -->
     <script>
-        const _CURRENT_VERSION = 'v1.6013';
+        const _CURRENT_VERSION = 'v1.6015';
         const _REMOTE_URL = 'https://osawa99999.github.io/VolChe/index.html';
 
         // ボタンを永続的に無効化するヘルパー
