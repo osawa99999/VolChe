@@ -85,6 +85,13 @@
   - 外側セル判定：グリッド境界からのBFS flood-fill → 外側=OUTSIDE, 内側穴=INSIDE_HOLE
   - sealHolesはボクセル化前に事前実行 → カルデラ穴をボクセル化前に閉じる
 
+  ─ v1.6024 修正 ─
+  - 不明面過多トーストのテキスト変更
+    「確定を押してオレンジ部分を閉鎖するか\nボクセル化してみてね？」を追加
+  - 不明面過多判定時に体積数字をオレンジ（#ff6600）で表示
+    _volumeIsUncertain フラグを新設
+  - _clearVolumeDisplay にオレンジ解除（r.style.color=''）と_volumeIsUncertainリセットを追加
+
   ─ v1.6023 修正 ─
   - buildBottomCap を凸包(convexHull2D)からouterLoop+ear-clipping方式に変更
       L字・コの字など非凸形状の底面も正確に三角分割できるようになった
@@ -301,7 +308,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <link rel="manifest" href="./manifest.json">
-    <title>VolChe - Volume Checker v1.6023</title>
+    <title>VolChe - Volume Checker v1.6024</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -1314,7 +1321,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6023</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6024</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB / OBJ ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:8px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -1373,7 +1380,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6023</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6024</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
@@ -2827,6 +2834,7 @@
             const r = document.getElementById('result');
             r.textContent = '---';
             r.style.fontSize = '';
+            r.style.color = '';  // オレンジ解除
             const cap = scene.getObjectByName('visualCap');
             if (cap) scene.remove(cap);
             const sw = scene.getObjectByName('sealWireframe');
@@ -2842,6 +2850,7 @@
             // 穴埋め確定フラグをリセット（消去・カット・ロード後は再計算が必要）
             _isSealConfirmed = false;
             _lastCalcVolume = -1;
+            _volumeIsUncertain = false;
         }
 
         // ユーティリティ：cutterPlaneをオブジェクト現在サイズに合わせて再初期化
@@ -3252,6 +3261,7 @@
         let _isVoxelized = false;         // ボクセル化確定済みフラグ（calcVolumeでsealHolesをスキップ）
         let _lastCalcVolume = -1;         // 直前のcalcVolume結果（確定後の2回目計算で再利用）
         let _isSealConfirmed = false;     // 穴埋め確定済みフラグ（確定後は_lastCalcVolumeを返す）
+        let _volumeIsUncertain = false;   // 不明面過多フラグ（体積数字をオレンジ表示）
 
         // スライダー値 → ボクセルサイズ（メートル）
         // スライダー 2～30 → 2cm～30cm（固定値）
@@ -4007,9 +4017,12 @@
                 }
                 // オレンジ面積が底面の 30% 超 → 不明面が大きすぎる → ボクセル化を推奨
                 if (_hasOrangePatches && _grayXZArea > 0 && _orangeXZArea / _grayXZArea > 0.3) {
+                    _volumeIsUncertain = true;
                     setTimeout(() => toast(
-                        '不明な面が多くて正確な体積が出せないよ？\nボクセル化してみてね？', true
+                        '不明な面が多くて正確な体積が出せないよ？\n確定を押してオレンジ部分を閉鎖するか\nボクセル化してみてね？', true
                     ), 300);
+                } else {
+                    _volumeIsUncertain = false;
                 }
             } catch(e) { console.warn('[showAllHolePatches] skip:', e); }
 
@@ -4075,6 +4088,7 @@
             const result = Math.abs(vol);
             const truncated = Math.floor(result * 1000) / 1000;
             resultEl.textContent = truncated.toFixed(3);
+            resultEl.style.color = _volumeIsUncertain ? '#ff6600' : '';
             _lastCalcVolume = truncated;   // 確定後の再計算用に保存
             _isSealConfirmed = false;      // 新規計算なのでリセット
             setStatus('READY');
@@ -5510,7 +5524,7 @@ if (changed) {
          最新版チェック
          ═══════════════════════════════════════════════ -->
     <script>
-        const _CURRENT_VERSION = 'v1.6023';
+        const _CURRENT_VERSION = 'v1.6024';
         const _REMOTE_URL = 'https://osawa99999.github.io/VolChe/index.html';
 
         // updateStatus テキストを更新するヘルパー
