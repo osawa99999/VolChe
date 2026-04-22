@@ -85,6 +85,32 @@
   - 外側セル判定：グリッド境界からのBFS flood-fill → 外側=OUTSIDE, 内側穴=INSIDE_HOLE
   - sealHolesはボクセル化前に事前実行 → カルデラ穴をボクセル化前に閉じる
 
+  ─ v1.6043 修正 ─
+  - onResize を PC/スマホで正しく分岐
+      PC（pointer:fine）: renderer.setSize(innerWidth, innerHeight, true) でCSSも更新
+      スマホ/タブレット（pointer:coarse）: setSize(..., false) でCSSサイズは変えない
+      これによりウィンドウリサイズ時・視点再調整時に正しくキャンバスが追従する
+
+  ─ v1.6042 修正 ─
+  - onResize を PC/スマホで分岐
+      PC（pointer:fine）: innerWidth/innerHeight を使用
+      スマホ/タブレット（pointer:coarse）: clientWidth/clientHeight（CSSレイアウト優先）
+      ウィンドウリサイズ後に視点再調整を押すとオブジェクトが正しい中央に移動
+
+  ─ v1.6041 修正 ─
+  - resetRoll内のリサイズ処理を innerWidth/innerHeight 固定に変更（v1.6043で onResize に統合）
+      PCでは renderer.domElement の clientWidth が0になるケースがあるため
+
+  ─ v1.6040 修正 ─
+  - resetRoll を requestAnimationFrame でラップ
+      CSSレイアウト確定後に onResize()→fit() を実行することで
+      ウィンドウリサイズ後に視点再調整を押すとオブジェクトが新しいキャンバス中央に移動
+
+  ─ v1.6039 修正 ─
+  - 視点再調整ボタンの「[R]」表示を削除（キーボードショートカット機能は残存）
+  - resetRoll 冒頭に onResize() を追加
+      ウィンドウサイズ変更後に視点再調整を押すとカメラ・レンダラーのズレが解消される
+
   ─ v1.6038 修正 ─
   - buildBottomCap の isUnrealistic 判定（凸包面積比 ratio < 0.90）を廃止
       earClip2D は非凸形状（L字・コの字）も正確に三角分割できるため
@@ -273,7 +299,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <link rel="manifest" href="./manifest.json">
-    <title>VolChe - Volume Checker v1.6038</title>
+    <title>VolChe - Volume Checker v1.6043</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -1297,7 +1323,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6038</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6043</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB / OBJ ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:8px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -1356,7 +1382,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6038</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6043</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
@@ -1534,7 +1560,7 @@
             <button class="btn" id="resetView">Overhead</button>
         </div>
         <button class="btn" id="resetRoll"
-            style="margin-top:6px; background:rgba(0,200,255,0.15); color:var(--accent2); border-color:rgba(0,200,255,0.6); font-size:15px; font-weight:700; letter-spacing:0.08em; padding:11px;">⊕ 視点再調整 <span style="font-size:10px; opacity:0.6;">[R]</span></button>
+            style="margin-top:6px; background:rgba(0,200,255,0.15); color:var(--accent2); border-color:rgba(0,200,255,0.6); font-size:15px; font-weight:700; letter-spacing:0.08em; padding:11px;">⊕ 視点再調整</button>
         <!-- 7番: L=・H=表示 -->
         <div id="obj-size-display" style="margin-top:6px; padding:5px 8px; background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:3px; font-family:var(--mono); font-size:12px; color:var(--accent2); display:none; line-height:1.6;">
             <div id="obj-size-l">L = --</div>
@@ -2872,19 +2898,22 @@
         // 視点再調整 ＋ オブジェクト原点リセット（手動ボタン / [R]キー）
         // ─────────────────────────────────────────────
         function resetRoll() {
-            if (targetMeshes.length === 0) {
+            requestAnimationFrame(() => {
+                onResize();
+                if (targetMeshes.length === 0) {
+                    camera.up.set(0, 1, 0);
+                    controls.update();
+                    toast('視点を正立したよ ✓');
+                    return;
+                }
+                if (!_bakeAndCenter()) return;
                 camera.up.set(0, 1, 0);
-                controls.update();
-                toast('視点を正立したよ ✓');
-                return;
-            }
-            if (!_bakeAndCenter()) return;
-            camera.up.set(0, 1, 0);
-            fit();
-            _resetCutterPlane();
-            document.getElementById('scale-hint').style.display = 'none';
-            toast('原点リセット完了！▶ 体積計算ボタンで計算してね ✓');
-            _clearVolumeDisplay();
+                fit();
+                _resetCutterPlane();
+                document.getElementById('scale-hint').style.display = 'none';
+                toast('原点リセット完了！▶ 体積計算ボタンで計算してね ✓');
+                _clearVolumeDisplay();
+            });
         }
 
         // ─────────────────────────────────────────────
@@ -5488,11 +5517,20 @@ if (changed) {
         // リサイズ（スマホ時はcanvasの実サイズを使う）
         function onResize() {
             const c = renderer.domElement;
-            const w = c.clientWidth  || innerWidth;
-            const h = c.clientHeight || innerHeight;
-            camera.aspect = w / h;
-            camera.updateProjectionMatrix();
-            renderer.setSize(w, h, false);
+            const isTouch = window.matchMedia('(pointer:coarse)').matches;
+            if (isTouch) {
+                // スマホ/タブレット: CSSレイアウト優先（CSSサイズは変えない）
+                const w = c.clientWidth  || innerWidth;
+                const h = c.clientHeight || innerHeight;
+                camera.aspect = w / h;
+                camera.updateProjectionMatrix();
+                renderer.setSize(w, h, false);
+            } else {
+                // PC: innerWidth/innerHeightに合わせてキャンバスもリサイズ
+                camera.aspect = innerWidth / innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(innerWidth, innerHeight, true);
+            }
         }
         window.addEventListener('resize', onResize);
         // スマホでlayout確定後に再計算
@@ -5530,7 +5568,7 @@ if (changed) {
          最新版チェック
          ═══════════════════════════════════════════════ -->
     <script>
-        const _CURRENT_VERSION = 'v1.6038';
+        const _CURRENT_VERSION = 'v1.6043';
         const _REMOTE_URL = 'https://osawa99999.github.io/VolChe/index.html';
 
         // updateStatus テキストを更新するヘルパー
