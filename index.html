@@ -85,6 +85,7 @@
   - 外側セル判定：グリッド境界からのBFS flood-fill → 外側=OUTSIDE, 内側穴=INSIDE_HOLE
   - sealHolesはボクセル化前に事前実行 → カルデラ穴をボクセル化前に閉じる
 
+<<<<<<< HEAD
   ─ v1.6029 修正 ─
   - ロゴタップの動作を location.reload() → file-input.click() に変更
       キャンセルすれば作業継続・うっかりタップで吹き飛ぶ問題を解消
@@ -96,6 +97,8 @@
       JS: matchMedia('pointer:coarse')でタッチデバイス判定→click→location.reload()
       PC（pointer:fine）はpointer-events:noneのまま変化なし
 
+=======
+>>>>>>> parent of d260987 (Update index.html)
   ─ v1.6027 修正 ─
   - result-uncertain-mark の font-size を 11px → 16px に拡大
 
@@ -333,7 +336,11 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <link rel="manifest" href="./manifest.json">
+<<<<<<< HEAD
     <title>VolChe - Volume Checker v1.6029</title>
+=======
+    <title>VolChe - Volume Checker v1.6027</title>
+>>>>>>> parent of d260987 (Update index.html)
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -807,17 +814,6 @@
                 left: auto;
                 right: 16px;
                 width: 120px;
-            }
-        }
-        /* タッチデバイス（iPhone/iPad）のみタップ可能・カーソル変更 */
-        @media (pointer: coarse) {
-            #osaki-logo {
-                pointer-events: auto;
-                cursor: pointer;
-                -webkit-tap-highlight-color: transparent;
-            }
-            #osaki-logo:active {
-                opacity: 0.5;
             }
         }
 
@@ -1357,7 +1353,11 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
+<<<<<<< HEAD
             <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6029</div>
+=======
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6027</div>
+>>>>>>> parent of d260987 (Update index.html)
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB / OBJ ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:8px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -1416,7 +1416,11 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
+<<<<<<< HEAD
             <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6029</span>
+=======
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6027</span>
+>>>>>>> parent of d260987 (Update index.html)
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
@@ -5567,7 +5571,11 @@ if (changed) {
          最新版チェック
          ═══════════════════════════════════════════════ -->
     <script>
+<<<<<<< HEAD
         const _CURRENT_VERSION = 'v1.6029';
+=======
+        const _CURRENT_VERSION = 'v1.6027';
+>>>>>>> parent of d260987 (Update index.html)
         const _REMOTE_URL = 'https://osawa99999.github.io/VolChe/index.html';
 
         // updateStatus テキストを更新するヘルパー
@@ -5627,6 +5635,7 @@ if (changed) {
     </script>
 
     <!-- ═══════════════════════════════════════════════
+<<<<<<< HEAD
          ロゴタップでリロード（iPhone/iPad PWA向け）
          ブラウザの更新ボタンが使えないPWA環境で
          ファイル選択をやり直せるようにする
@@ -5641,6 +5650,8 @@ if (changed) {
     </script>
 
     <!-- ═══════════════════════════════════════════════
+=======
+>>>>>>> parent of d260987 (Update index.html)
          PWA: Service Worker 登録
          manifest.json と sw.js は GitHub に別途配置してね。
          https://[username].github.io/VolChe/ で配信する前提。
