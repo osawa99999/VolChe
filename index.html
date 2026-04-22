@@ -85,6 +85,14 @@
   - 外側セル判定：グリッド境界からのBFS flood-fill → 外側=OUTSIDE, 内側穴=INSIDE_HOLE
   - sealHolesはボクセル化前に事前実行 → カルデラ穴をボクセル化前に閉じる
 
+  ─ v1.6036 修正 ─
+  - #volume-warn-text に white-space:pre-line を追加
+    → \n が改行として表示されるようになった
+
+  ─ v1.6035 修正 ─
+  - 非現実的形状時の警告テキストを変更
+    「形状が非現実的な為...」→「データが破損している可能性があり\n正確な体積が出せないよ？\nボクセル化してみてね？」
+
   ─ v1.6034 修正 ─
   - ヘッダーログを整理（v1.6003〜v1.6022 を分類ごとにまとめて圧縮）
 
@@ -107,7 +115,7 @@
       戻り値を capGeo → { geo, isUnrealistic } に変更
   - calcVolume で isUnrealistic=true の場合
       _volumeIsUncertain=true → 体積を赤字「?」表示
-      「データが破損している可能性があり、正確な体積を測れません'」トーストを表示
+      「形状が非現実的な為、正確な体積を測れません」トーストを表示
   - カットしすぎてコの字・ロの字になった場合も警告対象になった
 
   ─ v1.6030 修正 ─
@@ -252,7 +260,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <link rel="manifest" href="./manifest.json">
-    <title>VolChe - Volume Checker v1.6034</title>
+    <title>VolChe - Volume Checker v1.6036</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -1276,7 +1284,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6034</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6036</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB / OBJ ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:8px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -1335,7 +1343,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6034</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6036</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
@@ -1366,7 +1374,7 @@
                 <button class="btn btn-accent" id="calcBtn" style="margin-bottom:0; flex-shrink:0; width:auto; padding:8px 10px; font-size:14px; white-space:nowrap;">▶ 計算</button>
             </div>
             <!-- 体積計算警告テキスト（形状異常・不明面過多時） -->
-            <div id="volume-warn-text" style="display:none; font-size:10px; color:#ff4444; font-family:var(--mono); line-height:1.5; margin-bottom:5px; padding:4px 6px; border:1px solid rgba(255,68,68,0.3); border-radius:3px; background:rgba(255,68,68,0.07);"></div>
+            <div id="volume-warn-text" style="display:none; font-size:10px; color:#ff4444; font-family:var(--mono); line-height:1.5; margin-bottom:5px; padding:4px 6px; border:1px solid rgba(255,68,68,0.3); border-radius:3px; background:rgba(255,68,68,0.07); white-space:pre-line;"></div>
             <!-- 穴埋め確定ボタン（計算後に表示） -->
             <div id="seal-confirm-area" style="display:none; margin-bottom:6px;">
                 <div id="seal-confirm-msg" style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:5px; line-height:1.5;"></div>
@@ -4007,7 +4015,7 @@
                     // 非現実的形状フラグ
                     if (capResult.isUnrealistic) {
                         _volumeIsUncertain = true;
-                        _setVolumeWarn('⚠ データが破損している可能性があり\n正確な体積が出せないよ\nボクセル化してみてね？');
+                        _setVolumeWarn('⚠ データが破損している可能性があり\n正確な体積が出せないよ？\nボクセル化してみてね？');
                     }
                 }
             } catch (e) {
@@ -5556,7 +5564,7 @@ if (changed) {
          最新版チェック
          ═══════════════════════════════════════════════ -->
     <script>
-        const _CURRENT_VERSION = 'v1.6034';
+        const _CURRENT_VERSION = 'v1.6036';
         const _REMOTE_URL = 'https://osawa99999.github.io/VolChe/index.html';
 
         // updateStatus テキストを更新するヘルパー
