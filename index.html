@@ -122,17 +122,14 @@
       _setVolumeWarn(msg) ヘルパーを新設
       _clearVolumeDisplay でクリア
   - buildBottomCap のコンソールログを見やすく改善
-      [buildBottomCap] actualArea / hullArea / ratio / OK|UNREALISTIC を出力
-      F12コンソールで形状の面積比率をリアルタイム確認可能
+      ※ v1.6038 で ratio判定廃止・コンソールはtris数のみ出力に簡略化
 
   ─ v1.6031 追加 ─
-  - buildBottomCap に実面積÷凸包面積の比率判定を追加
-      比率 < 0.75 → isUnrealistic=true
-      戻り値を capGeo → { geo, isUnrealistic } に変更
-  - calcVolume で isUnrealistic=true の場合
+  - buildBottomCap に実面積÷凸包面積の比率判定を追加（v1.6038で廃止）
+      earClip2Dは非凸形状も正確に処理できるため凸包との比較は無意味だった
+  - calcVolume で isUnrealistic=true の場合（v1.6038で廃止）
       _volumeIsUncertain=true → 体積を赤字「?」表示
-      「形状が非現実的な為、正確な体積を測れません」トーストを表示
-  - カットしすぎてコの字・ロの字になった場合も警告対象になった
+  - カットしすぎてコの字・ロの字になった場合も警告対象になった（v1.6038で廃止）
 
   ─ v1.6030 修正 ─
   - 新バージョンあり時のconfirmダイアログでNo選択時の表示を修正
@@ -1300,7 +1297,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6036</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6038</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB / OBJ ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:8px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -1359,7 +1356,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6036</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6038</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
@@ -2071,9 +2068,6 @@
             }
         }
 
-        // 後方互換: showSealWireframe / updateVisualCap は showPatchVisual に統合済み
-        function showSealWireframe() {}
-        function updateVisualCap() {}
 
         // ══════════════════════════════════════════════════════════════════
         // 視覚表示専用: showAllHolePatches（Gemini方式移植）
