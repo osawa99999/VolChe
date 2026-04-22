@@ -85,6 +85,19 @@
   - 外側セル判定：グリッド境界からのBFS flood-fill → 外側=OUTSIDE, 内側穴=INSIDE_HOLE
   - sealHolesはボクセル化前に事前実行 → カルデラ穴をボクセル化前に閉じる
 
+  ─ v1.6033 修正 ─
+  - isUnrealistic 閾値を 0.75 → 0.90 に変更
+      実測: 正常山形状=0.996 / L字=0.860 → 0.90 で明確に判定可能
+
+  ─ v1.6032 修正 ─
+  - 警告表示をトーストから常時テキスト（#volume-warn-text）に変更
+      赤枠・薄赤背景・10px・monospace
+      _setVolumeWarn(msg) ヘルパーを新設
+      _clearVolumeDisplay でクリア
+  - buildBottomCap のコンソールログを見やすく改善
+      [buildBottomCap] actualArea / hullArea / ratio / OK|UNREALISTIC を出力
+      F12コンソールで形状の面積比率をリアルタイム確認可能
+
   ─ v1.6031 追加 ─
   - buildBottomCap に実面積÷凸包面積の比率判定を追加
       比率 < 0.75 → isUnrealistic=true
@@ -347,7 +360,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <link rel="manifest" href="./manifest.json">
-    <title>VolChe - Volume Checker v1.6031</title>
+    <title>VolChe - Volume Checker v1.6033</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -1371,7 +1384,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6031</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6033</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB / OBJ ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:8px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -1430,7 +1443,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6031</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6033</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
@@ -1460,6 +1473,8 @@
                 <div id="vert-count-inline" style="font-family:var(--mono); font-size:10px; color:var(--text-dim); white-space:nowrap; flex-shrink:0; line-height:1.5; text-align:right; display:none; align-self:center;">頂点: --<br>ポリゴン: --</div>
                 <button class="btn btn-accent" id="calcBtn" style="margin-bottom:0; flex-shrink:0; width:auto; padding:8px 10px; font-size:14px; white-space:nowrap;">▶ 計算</button>
             </div>
+            <!-- 体積計算警告テキスト（形状異常・不明面過多時） -->
+            <div id="volume-warn-text" style="display:none; font-size:10px; color:#ff4444; font-family:var(--mono); line-height:1.5; margin-bottom:5px; padding:4px 6px; border:1px solid rgba(255,68,68,0.3); border-radius:3px; background:rgba(255,68,68,0.07);"></div>
             <!-- 穴埋め確定ボタン（計算後に表示） -->
             <div id="seal-confirm-area" style="display:none; margin-bottom:6px;">
                 <div id="seal-confirm-msg" style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:5px; line-height:1.5;"></div>
@@ -2512,8 +2527,15 @@
                 }
 
                 const areaRatio = hullArea > 0 ? actualArea / hullArea : 1;
-                const isUnrealistic = areaRatio < 0.75;
-                console.log(`[buildBottomCap] groundY=${groundY.toFixed(4)}, loop=${outerLoop.length}verts, tris=${tris.length}, areaRatio=${areaRatio.toFixed(3)}, isUnrealistic=${isUnrealistic}`);
+                const isUnrealistic = areaRatio < 0.90;
+                console.log(
+                    `[buildBottomCap] groundY=${groundY.toFixed(4)}` +
+                    ` | loop=${outerLoop.length}verts, tris=${tris.length}` +
+                    ` | actualArea=${actualArea.toFixed(3)}㎡` +
+                    ` | hullArea=${hullArea.toFixed(3)}㎡` +
+                    ` | ratio=${areaRatio.toFixed(3)}` +
+                    (isUnrealistic ? ' ⚠ UNREALISTIC (ratio < 0.75)' : ' ✅ OK')
+                );
 
                 // groundY に配置（下向き法線 = Y- 外向きになるよう頂点順逆転）
                 const verts = [];
@@ -2927,6 +2949,19 @@
         }
 
         // ユーティリティ：体積表示・シール可視化・ワイヤーフレームをリセット
+        // 体積警告テキストを設定するヘルパー
+        function _setVolumeWarn(msg) {
+            const el = document.getElementById('volume-warn-text');
+            if (!el) return;
+            if (msg) {
+                el.textContent = msg;
+                el.style.display = 'block';
+            } else {
+                el.textContent = '';
+                el.style.display = 'none';
+            }
+        }
+
         function _clearVolumeDisplay() {
             const r = document.getElementById('result');
             r.textContent = '---';
@@ -2950,6 +2985,7 @@
             _isSealConfirmed = false;
             _lastCalcVolume = -1;
             _volumeIsUncertain = false;
+            _setVolumeWarn(null);
         }
 
         // ユーティリティ：cutterPlaneをオブジェクト現在サイズに合わせて再初期化
@@ -4079,9 +4115,7 @@
                     // 非現実的形状フラグ
                     if (capResult.isUnrealistic) {
                         _volumeIsUncertain = true;
-                        setTimeout(() => toast(
-                            '形状が非現実的な為、正確な体積を測れません', true
-                        ), 300);
+                        _setVolumeWarn('⚠ 形状が非現実的な為、正確な体積を測れません');
                     }
                 }
             } catch (e) {
@@ -4124,11 +4158,9 @@
                 // オレンジ面積が底面の 30% 超 → 不明面が大きすぎる → ボクセル化を推奨
                 if (_hasOrangePatches && _grayXZArea > 0 && _orangeXZArea / _grayXZArea > 0.3) {
                     _volumeIsUncertain = true;
-                    setTimeout(() => toast(
-                        '不明な面が多くて正確な体積が出せないよ？\n確定を押してオレンジ部分を閉鎖するか\nボクセル化してみてね？', true
-                    ), 300);
-                } else {
-                    _volumeIsUncertain = false;
+                    _setVolumeWarn('⚠ 不明な面が多くて正確な体積が出せないよ？\n確定を押してオレンジ部分を閉鎖するか\nボクセル化してみてね？');
+                } else if (!_volumeIsUncertain) {
+                    _setVolumeWarn(null);
                 }
             } catch(e) { console.warn('[showAllHolePatches] skip:', e); }
 
@@ -5632,7 +5664,7 @@ if (changed) {
          最新版チェック
          ═══════════════════════════════════════════════ -->
     <script>
-        const _CURRENT_VERSION = 'v1.6031';
+        const _CURRENT_VERSION = 'v1.6033';
         const _REMOTE_URL = 'https://osawa99999.github.io/VolChe/index.html';
 
         // updateStatus テキストを更新するヘルパー
