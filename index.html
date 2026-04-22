@@ -85,6 +85,9 @@
   - 外側セル判定：グリッド境界からのBFS flood-fill → 外側=OUTSIDE, 内側穴=INSIDE_HOLE
   - sealHolesはボクセル化前に事前実行 → カルデラ穴をボクセル化前に閉じる
 
+  ─ v1.6034 修正 ─
+  - ヘッダーログを整理（v1.6003〜v1.6022 を分類ごとにまとめて圧縮）
+
   ─ v1.6033 修正 ─
   - isUnrealistic 閾値を 0.75 → 0.90 に変更
       実測: 正常山形状=0.996 / L字=0.860 → 0.90 で明確に判定可能
@@ -147,151 +150,40 @@
   ─ v1.6023 修正 ─
   - buildBottomCap を凸包(convexHull2D)からouterLoop+ear-clipping方式に変更
       L字・コの字など非凸形状の底面も正確に三角分割できるようになった
-      earClip2D 関数を新規追加
-      convexHull2D 関数を削除
-  - 最新版チェックUI をボタンから小テキスト表示に変更
-      起動時→「確認中...」→最新版「最新版です」/オフライン「オフラインです」
-      新バージョンあり→confirmダイアログ→DL or 「最新版です」のまま
-      checkUpdateBtn 廃止・_disableUpdateBtn 廃止
-      updateStatus div を新設（font-size:11px, color:var(--text-dim), opacity:0.7）
-      drop-overlay の stopPropagation 除外コードも不要になり削除
+      earClip2D 関数を新規追加 / convexHull2D 関数を削除
+  - 最新版チェックUIをボタンから小テキスト表示（#updateStatus）に変更
+      起動時自動チェック→「確認中...」→「最新版です」/「オフラインです」
+      checkUpdateBtn・_disableUpdateBtn 廃止
 
-  ─ v1.6022 修正 ─
-  - 起動時にバージョン自動チェックを実行（ボタン押し不要）
-      → 最新版あり → confirmダイアログ → Yes: DL / No: そのまま
-      → 最新版なし → ボタンに「✅ 最新版だよ！」表示してそのまま
-      → 通信失敗（オフライン）→ ボタンを復活させて再試行可能に
-  - autoResetRollKeepCameraでもsealedPreview（青メッシュ）を必ず消すように修正
-      ボクセル化済み(_isVoxelized=true)の場合も青プレビュー・オレンジパッチを除去
-  - undo()にsealedPreview削除・removeAllHolePatches・seal-confirm-area非表示を追加
-      「↩ 戻す」ボタン押下後に青メッシュ・オレンジパッチ・確定ボタンが残る問題を修正
-  - 計算後のメッセージ改行をデバイス別に変更
-      iPhone/iPad(pointer:coarse): 「🔵 青 = 計算範囲 / 🟠 オレンジ = 穴埋め部分\n確定するとオレンジが正規メッシュになるよ」
-      PC/iPad横: 「🔵 青 = 計算範囲\n🟠 オレンジ = 穴埋め部分\n確定するとオレンジが正規メッシュになるよ」
+  ─ v1.6003〜v1.6022 まとめ ─
+  [体積計算・穴埋め関連]
+  - v1.6003: clipTriangleOutsideBox④をSutherland-Hodgman方式に修正（体積増加バグ解消）
+  - v1.6014: buildBottomCap/convexHull2D追加。sealHoles前に底面キャップ先生成
+  - v1.6015: 不明面過多（オレンジ/底面比>30%）でボクセル化推奨トースト追加
+             ボクセル化確定前にconfirmダイアログ追加
+  - v1.6016: setMode時にsealedPreview（青）・allHolePatchesを除去
+  - v1.6019: ヘッダーコメント整合（sealHoles/showAllHolePatches注釈を現状に更新）
+  - v1.6020: 穴埋め確定後の再計算ズレ修正（_lastCalcVolume/_isSealConfirmed追加）
+  - v1.6021: _isSealConfirmed/_lastCalcVolumeのリセット漏れ修正
+  - v1.6022: 起動時バージョン自動チェック追加・undo後の青メッシュ残存修正
 
-  ─ v1.6021 修正 ─
-  - _isSealConfirmed / _lastCalcVolume のリセット漏れを修正
-  - _clearVolumeDisplay() にフラグリセットを追加
-    → 矩形消去・ラッソ消去・カット・undo後も正しく再計算されるようになった
-    → 問題1〜5（確定後に消去→計算で前の体積が出る・青プレビューが出ない）を解決
+  [視覚表示関連]
+  - v1.6004: showAllHolePatchesの色分け（底面=グレー0.55/穴断面=オレンジ0.85）
+  - v1.6009: calcVolume後にsealedPreview（青半透明）表示・穴埋め確定フロー追加
+  - v1.6010: sealedPreview opacity 0.35→0.6
 
-  ─ v1.6020 修正 ─
-  - 穴埋め確定後に再計算すると体積が微妙にズレる問題を修正
-  - 原因: 確定後も buildBottomCap+sealHoles が再実行されて底面キャップ形状が微変化
-  - 修正: _lastCalcVolume（1回目の計算値）と _isSealConfirmed フラグを追加
-      確定ボタン押下 → _isSealConfirmed=true
-      次回 calcVolume → _lastCalcVolume をそのまま返す（再計算しない）
-      新規ロード・undo → 両フラグをリセット
+  [LiDARクリーンアップ関連]
+  - v1.6005: LiDARMeshCleaner移植（NaN/0面積/極小三角形除去・0.1mm量子化）・PWA対応
+  - v1.6006: クリーンアップ結果トースト表示・toast()にduration引数追加
+  - v1.6007: LiDARMeshCleanerを2パス実行に変更（量子化由来の縮退ポリゴン対策）
+  - v1.6008: 2パスクリーンアップの統計表示バグ修正
 
-  ─ v1.6019 修正 ─
-  - ヘッダーコメントの古い記述を現状に合わせて修正
-    ・sealHoles注釈: 底面処理の役割がbuildBottomCapに移ったことを明記
-    ・v1.6002注釈: 「分類なし」→ v1.6004以降の色分け仕様（グレー/オレンジ）を反映
-    ・v1.6002注釈: opacity:0.6 → v1.6004以降の実際値（0.55/0.85）を反映
-
-  ─ v1.6018 修正 ─
-  - 「最新版を確認する」ボタンをさらに拡大（約25%）
-    font-size: 12px → 15px / padding: 7px 18px → 9px 22px
-
-  ─ v1.6017 修正 ─
-  - ロード画面「最新版を確認する」ボタンを視認性改善
-    color: text-dim → var(--text) / background: 0.05 → 0.1 / border: 0.2 → 0.38 / font-size: 11px → 12px
-
-  ─ v1.6016 修正 ─
-  - setMode 呼び出し時に sealedPreview（青半透明）と allHolePatches を除去
-  - 体積計算後に他のボタンを押すと青いポリゴンが残る問題を修正
-  - 体積数値（result）はリセットせず保持
-
-  ─ v1.6015 修正 ─
-  - 体積計算時にオレンジパッチ（切断面）XZ面積が底面の30%超の場合
-    「不明な面が多くて正確な体積が出せないよ？\nボクセル化してみてね？」トーストを表示
-  - ボクセル化確定（simplifyApplyBtn）前に confirm ダイアログを追加
-    「ボクセル化を行うと体積が増える場合があります\nよろしいですか？」
-
-  ─ v1.6014 修正 ─
-  - 体積計算時に底面キャップ（XZ凸包 fan triangulation）を先生成
-  - buildBottomCap / convexHull2D 関数を追加
-  - sealHoles に底面キャップ付き mergedWithCap を渡すよう変更
-  - 矩形消去後の2面開口（底面＋切断面）でも正確な体積計算が可能に
-
-  ─ v1.6013 修正 ─
-  - 最新版確認ボタンを押した時にロード画面（ファイル選択）が開くバグを修正
-  - checkUpdateBtn の click イベントに e.stopPropagation() を追加
-    → drop-overlayへの伝播を阻止
-
-  ─ v1.6012 修正 ─
-  - 最新版確認ボタンを1回押したら永続グレー無効化（再押し不可）
-      結果に関わらず disabled + borderColor/color をグレーに固定
-      キャンセル時・通信失敗時も復活しない
-  - _REMOTE_URL を index.html に修正（404エラー対策）
-
-  ─ v1.6011 追加 ─
-  - 【最新版確認ボタン】ロード画面に「🔄 最新版を確認する」ボタンを追加
-      fetch先: https://osawa99999.github.io/VolChe/VolChe_v1_xxxx.html
-      同じ → 「✅ 最新版だよ！」 / 新しい → confirm → キャッシュ全削除＋リダイレクト
-      通信失敗 → 「⚠ 確認できなかったよ！」
-  - _CURRENT_VERSION と _REMOTE_URL はバージョンアップ時に更新してね
-
-  ─ v1.6010 修正 ─
-  - 水密青プレビューの opacity を 0.35 → 0.6 に変更
-  - 確定ボタン: オレンジパッチがない場合は非表示
-  - seal-confirm-area の display:none 二重指定を修正
-
-  ─ v1.6009 追加 ─
-  - 【計算後の視覚フィードバック強化】
-      calcVolume 実行後に水密化ジオメトリを半透明青（sealedPreview）で表示
-      → 素人でも「ここが計算対象」と視覚的にわかる
-  - 【穴埋め確定フロー追加】
-      計算後に「✔ 確定する」「✕ キャンセル」ボタンを表示（#seal-confirm-area）
-      確定: オレンジパッチ(穴断面)を targetMeshes[0] に正規メッシュとして焼き込む
-      キャンセル: 青・パッチを消すだけ。体積数値は残る。
-  - 【ボクセル化確定後にパッチ非表示】
-      _applySimplify 内で removeAllHolePatches + sealedPreview 除去を追加
-  - _clearVolumeDisplay に sealedPreview 除去・確定ボタン非表示を追加
-
-  ─ v1.6008 修正 ─
-  - 2パスクリーンアップの統計表示バグを修正
-  - 旧: getStats()が2パス目の値のみ返す→1パス目の除去数が闇に葬られてた
-  - 新: s1（1パス目）+ s2（2パス目）を合算。inTriは元入力数、outTriは最終出力数
-
-  ─ v1.6007 修正 ─
-  - LiDARMeshCleaner を2パス実行に変更
-  - 1パス目の量子化（0.1mm丸め）で近接頂点が同座標にスナップ→面積ゼロ化する問題を修正
-  - 2パス目で量子化由来の縮退ポリゴンを除去。2度読みしなくてもOKになった。
-
-  ─ v1.6006 追加 ─
-  - クリーンアップ結果をトーストで表示（ブラックボックス解消）
-      「ポリゴン: XXXXX → XXXXX」（入出力数）
-      除去あり: 「🧹 クリーンアップ: XX 個除去」＋内訳（NaN/0面積/極小）→ 6秒表示
-      問題なし: 「✅ クリーンアップ: 問題なし」→ 3秒表示
-  - toast() に duration 引数を追加（デフォルト3000ms、呼び出し元で上書き可能）
-
-  ─ v1.6005 追加・修正 ─
-  - 【LiDARMeshCleaner 移植】ロード時に自動クリーンアップ（FBX/GLB/OBJ 全対応）
-      ① NaN/Infinity 頂点を含む三角形を除去
-      ② 面積ゼロ三角形を除去
-      ③ 極小三角形（棘状ポリゴン含む）を除去: tinyEdgeRatio=1e-5（BBox対角比）
-      ④ 頂点座標を 0.1mm 単位で量子化（quantizeStep=0.0001m）
-      setup() 内の applyMatrix4 直後に cleaner.clean() を挿入。
-      クリーンアップ失敗時は警告のみでロード継続（フォールバック）。
-  - 【バージョン全箇所更新】ドロップ画面・パネルヘッダー・title・コメント
-  - 【PWA対応】Service Worker 登録コードを </body> 直前に追加
-      sw.js と manifest.json は GitHub に別途配置する（VolChe本体は準備完了）
-      ローカル(file://)では登録失敗するが無視して動作継続
-
-  ─ v1.6004 修正 ─
-  - showAllHolePatches の表示色を島ごとに色分け
-  - XZ面積が最大の島 = 底面 → グレー半透明（color:0x888888, opacity:0.55, depthWrite:false）
-  - それ以外の島 = 穴断面 → オレンジ（color:0xff6600, opacity:0.85, depthWrite:true）
-  - 底面と穴断面が視覚的に区別できるようになった
-  - 修正対象: showAllHolePatches の④⑤のみ。計算ロジックは一切無変更。
-
-  ─ v1.6003 修正 ─
-  - clipTriangleOutsideBox の④「外側ポリゴン取り出し」ロジックを修正
-  - 旧: 4辺それぞれの外側でクリップしてunion → コーナー三角形が重複追加 → 体積増加バグ
-  - 新: Sutherland-Hodgman complement分解方式（耳切り分割）
-       insidePoly の各辺を1本ずつ処理し「外側断片」を切り出す → 重複なし・面積保存
-  - 修正対象: clipTriangleOutsideBox の④のみ。他は一切無変更。
+  [バージョンチェックUI関連]
+  - v1.6011: 「🔄 最新版を確認する」ボタンをロード画面に追加
+  - v1.6012: ボタン1回押しで永続グレー無効化・_REMOTE_URLをindex.htmlに修正
+  - v1.6013: checkUpdateBtnクリック時にdrop-overlayが開くバグ修正
+  - v1.6017: ボタン視認性改善（color/background/border/font-size）
+  - v1.6018: ボタンさらに拡大（font-size:15px / padding:9px 22px）
 
   ─ 視覚表示改修 (v1.6002) ─
   - showAllHolePatches(mergedGeo): Gemini方式で全バウンダリ穴を視覚的に塞ぐ
@@ -360,7 +252,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <link rel="manifest" href="./manifest.json">
-    <title>VolChe - Volume Checker v1.6033</title>
+    <title>VolChe - Volume Checker v1.6034</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -1384,7 +1276,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6033</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6034</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB / OBJ ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:8px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -1443,7 +1335,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6033</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6034</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
@@ -5664,7 +5556,7 @@ if (changed) {
          最新版チェック
          ═══════════════════════════════════════════════ -->
     <script>
-        const _CURRENT_VERSION = 'v1.6033';
+        const _CURRENT_VERSION = 'v1.6034';
         const _REMOTE_URL = 'https://osawa99999.github.io/VolChe/index.html';
 
         // updateStatus テキストを更新するヘルパー
