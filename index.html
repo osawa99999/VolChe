@@ -85,6 +85,22 @@
   - 外側セル判定：グリッド境界からのBFS flood-fill → 外側=OUTSIDE, 内側穴=INSIDE_HOLE
   - sealHolesはボクセル化前に事前実行 → カルデラ穴をボクセル化前に閉じる
 
+  ─ v1.6038 修正 ─
+  - buildBottomCap の isUnrealistic 判定（凸包面積比 ratio < 0.90）を廃止
+      earClip2D は非凸形状（L字・コの字）も正確に三角分割できるため
+      凸包との面積比較は意味をなさなかった
+      ear-clipping 失敗時（tris.length===0）は既に return null しているため
+      警告が必要なケースはそのパスで自然にカバーされる
+      → L字形状で「データが破損している可能性があり」警告が出なくなった
+  - calcVolume から isUnrealistic 参照・警告表示を削除
+
+  ─ v1.6037 修正 ─
+  - sealedPreview（青）のソースを sealedGeo → mergedGeo（元形状）に変更
+      L字など非凸形状でも「計算した範囲」がそのまま正確に視覚化されるようになった
+      sealedGeo使用時はL字の欠け部分が四角く埋まって見えていた（見た目の誤解を招く）
+      FrontSide + depthWrite:true で内部への食い込みを防止
+      polygonOffset(-1,-1) で元メッシュとのZファイティングを回避
+
   ─ v1.6036 修正 ─
   - #volume-warn-text に white-space:pre-line を追加
     → \n が改行として表示されるようになった
@@ -260,7 +276,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <link rel="manifest" href="./manifest.json">
-    <title>VolChe - Volume Checker v1.6036</title>
+    <title>VolChe - Volume Checker v1.6038</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -2385,56 +2401,12 @@
                 const tris = earClip2D(poly);
                 if (tris.length === 0) { console.warn('[buildBottomCap] ear-clipping失敗'); return null; }
 
-                // ── 非現実的形状の判定（実面積 ÷ 凸包面積 < 0.75）──
-                // Shoelaceで実面積を計算
-                let actualArea = 0;
-                for (let i = 0; i < poly.length; i++) {
-                    const j = (i + 1) % poly.length;
-                    actualArea += poly[i][0] * poly[j][1] - poly[j][0] * poly[i][1];
-                }
-                actualArea = Math.abs(actualArea * 0.5);
-
-                // 凸包面積を計算
-                let hullArea = 0;
-                if (poly.length >= 3) {
-                    // Graham scanで凸包取得（earClip2Dのpoly基準）
-                    const hullPts = (() => {
-                        const pts = poly.slice();
-                        let si = 0;
-                        for (let i = 1; i < pts.length; i++) {
-                            if (pts[i][1] < pts[si][1] || (pts[i][1] === pts[si][1] && pts[i][0] < pts[si][0])) si = i;
-                        }
-                        const pivot = pts[si];
-                        const others = pts.filter((_, i) => i !== si);
-                        others.sort((a, b) => {
-                            const da = Math.atan2(a[1]-pivot[1], a[0]-pivot[0]);
-                            const db = Math.atan2(b[1]-pivot[1], b[0]-pivot[0]);
-                            return da !== db ? da - db : (a[0]-pivot[0])**2+(a[1]-pivot[1])**2 - ((b[0]-pivot[0])**2+(b[1]-pivot[1])**2);
-                        });
-                        const cross = (o,a,b) => (a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
-                        const h = [pivot];
-                        for (const p of others) {
-                            while (h.length >= 2 && cross(h[h.length-2], h[h.length-1], p) <= 0) h.pop();
-                            h.push(p);
-                        }
-                        return h;
-                    })();
-                    for (let i = 0; i < hullPts.length; i++) {
-                        const j = (i + 1) % hullPts.length;
-                        hullArea += hullPts[i][0] * hullPts[j][1] - hullPts[j][0] * hullPts[i][1];
-                    }
-                    hullArea = Math.abs(hullArea * 0.5);
-                }
-
-                const areaRatio = hullArea > 0 ? actualArea / hullArea : 1;
-                const isUnrealistic = areaRatio < 0.90;
+                // ear-clippingで正確に三角分割できた = 形状が正常
+                // （v1.6038以降: ratio判定廃止。earClip2Dは非凸形状も正確に処理できるため
+                //   凸包との面積比較は意味をなさない。失敗時はtris.length===0で既にreturnしている）
                 console.log(
                     `[buildBottomCap] groundY=${groundY.toFixed(4)}` +
-                    ` | loop=${outerLoop.length}verts, tris=${tris.length}` +
-                    ` | actualArea=${actualArea.toFixed(3)}㎡` +
-                    ` | hullArea=${hullArea.toFixed(3)}㎡` +
-                    ` | ratio=${areaRatio.toFixed(3)}` +
-                    (isUnrealistic ? ' ⚠ UNREALISTIC (ratio < 0.75)' : ' ✅ OK')
+                    ` | loop=${outerLoop.length}verts, tris=${tris.length} ✅`
                 );
 
                 // groundY に配置（下向き法線 = Y- 外向きになるよう頂点順逆転）
@@ -2448,7 +2420,7 @@
                 const capGeo = new THREE.BufferGeometry();
                 capGeo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
                 capGeo.computeVertexNormals();
-                return { geo: capGeo, isUnrealistic };
+                return { geo: capGeo };
 
             } catch(e) {
                 console.warn('[buildBottomCap] 失敗:', e);
@@ -4012,11 +3984,6 @@
                         toNonIdx(mergedGeo), toNonIdx(capResult.geo)
                     ]);
                     if (merged?.attributes?.position) mergedWithCap = merged;
-                    // 非現実的形状フラグ
-                    if (capResult.isUnrealistic) {
-                        _volumeIsUncertain = true;
-                        _setVolumeWarn('⚠ データが破損している可能性があり\n正確な体積が出せないよ？\nボクセル化してみてね？');
-                    }
                 }
             } catch (e) {
                 console.warn('[bottomCap] 生成失敗、フォールバック:', e);
@@ -4064,15 +4031,20 @@
                 }
             } catch(e) { console.warn('[showAllHolePatches] skip:', e); }
 
-            // ★ 水密化プレビュー: sealedGeoを半透明青で表示（「ここが計算対象」の視覚化）
+            // ★ 計算範囲プレビュー: mergedGeo（元形状）を半透明青で表示
+            //   sealedGeo（水密化済み）を使うとL字の欠け部分が四角く埋まって見えるため、
+            //   元形状をそのまま表示することで「計算した範囲」を正確に視覚化する。
+            //   FrontSide + depthWrite:true で内部への食い込みを防ぎ、
+            //   polygonOffset で元メッシュとのZファイティングを回避。
             const oldBlue = scene.getObjectByName('sealedPreview');
             if (oldBlue) scene.remove(oldBlue);
             try {
-                const blueGeo = sealedGeo.index ? sealedGeo.toNonIndexed() : sealedGeo.clone();
+                const blueGeo = mergedGeo.index ? mergedGeo.toNonIndexed() : mergedGeo.clone();
                 blueGeo.computeVertexNormals();
                 const blueMesh = new THREE.Mesh(blueGeo, new THREE.MeshPhongMaterial({
                     color: 0x0055ff, transparent: true, opacity: 0.6,
-                    side: THREE.DoubleSide, depthWrite: false, shininess: 10
+                    side: THREE.FrontSide, depthWrite: true, shininess: 10,
+                    polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1
                 }));
                 blueMesh.name = 'sealedPreview';
                 blueMesh.renderOrder = 0;
@@ -5564,7 +5536,7 @@ if (changed) {
          最新版チェック
          ═══════════════════════════════════════════════ -->
     <script>
-        const _CURRENT_VERSION = 'v1.6036';
+        const _CURRENT_VERSION = 'v1.6038';
         const _REMOTE_URL = 'https://osawa99999.github.io/VolChe/index.html';
 
         // updateStatus テキストを更新するヘルパー
