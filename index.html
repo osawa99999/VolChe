@@ -107,7 +107,7 @@
       戻り値を capGeo → { geo, isUnrealistic } に変更
   - calcVolume で isUnrealistic=true の場合
       _volumeIsUncertain=true → 体積を赤字「?」表示
-      「形状が非現実的な為、正確な体積を測れません」トーストを表示
+      「データが破損している可能性があり、正確な体積を測れません'」トーストを表示
   - カットしすぎてコの字・ロの字になった場合も警告対象になった
 
   ─ v1.6030 修正 ─
@@ -4007,7 +4007,7 @@
                     // 非現実的形状フラグ
                     if (capResult.isUnrealistic) {
                         _volumeIsUncertain = true;
-                        _setVolumeWarn('⚠ 形状が非現実的な為、正確な体積を測れません');
+                        _setVolumeWarn('⚠ データが破損している可能性があり<br>、正確な体積を測れません');
                     }
                 }
             } catch (e) {
