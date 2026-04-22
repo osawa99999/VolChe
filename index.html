@@ -85,6 +85,15 @@
   - 外側セル判定：グリッド境界からのBFS flood-fill → 外側=OUTSIDE, 内側穴=INSIDE_HOLE
   - sealHolesはボクセル化前に事前実行 → カルデラ穴をボクセル化前に閉じる
 
+  ─ v1.6031 追加 ─
+  - buildBottomCap に実面積÷凸包面積の比率判定を追加
+      比率 < 0.75 → isUnrealistic=true
+      戻り値を capGeo → { geo, isUnrealistic } に変更
+  - calcVolume で isUnrealistic=true の場合
+      _volumeIsUncertain=true → 体積を赤字「?」表示
+      「形状が非現実的な為、正確な体積を測れません」トーストを表示
+  - カットしすぎてコの字・ロの字になった場合も警告対象になった
+
   ─ v1.6030 修正 ─
   - 新バージョンあり時のconfirmダイアログでNo選択時の表示を修正
     Yes → DL・リロード
@@ -338,7 +347,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <link rel="manifest" href="./manifest.json">
-    <title>VolChe - Volume Checker v1.6030</title>
+    <title>VolChe - Volume Checker v1.6031</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
 
@@ -1362,7 +1371,7 @@
         <div class="drop-box">
             <div style="font-family:var(--mono); font-size:28px; font-weight:900; color:var(--accent); letter-spacing:0.1em; margin-bottom:2px; text-shadow:0 0 20px rgba(57,255,143,0.5);"><b>VolChe</b></div>
             <div style="font-size:11px; color:var(--text-dim); font-family:var(--mono); margin-bottom:4px; letter-spacing:0.15em;">〜 VolumeChecker 〜</div>
-            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6030</div>
+            <div style="font-size:11px; color:#ff0000; font-family:var(--mono); font-weight:900; margin-bottom:16px; letter-spacing:0.1em;">v1.6031</div>
             <div class="icon">📦</div>
             <div class="main" style="font-size:17px; line-height:1.6;">FBX / GLB / OBJ ファイルを<br>ここにD&amp;Dしてね？</div>
             <div class="sub" style="margin-top:8px; font-size:14px; color:var(--accent2); line-height:1.7;">📱 スマホ・タブレットはここをタップして<br>開くデータを選んでね？</div>
@@ -1421,7 +1430,7 @@
         <div class="panel-header">
             <h1><b>VolChe</b></h1>
             <span style="font-size:10px; color:var(--text-dim); margin-left:2px;">〜VolumeChecker〜</span>
-            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6030</span>
+            <span style="color:#ff0000; font-size:13px; font-weight:900; text-shadow:0 0 8px #ff0000;">v1.6031</span>
             <button id="ui-hide-btn" title="UIを隠す" style="margin-left:auto; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); border-radius:3px; color:var(--text-dim); font-size:11px; font-family:var(--mono); cursor:pointer; padding:3px 7px; line-height:1; touch-action:manipulation; letter-spacing:0.05em;">OFF</button>
         </div>
 
@@ -2461,6 +2470,51 @@
                 const tris = earClip2D(poly);
                 if (tris.length === 0) { console.warn('[buildBottomCap] ear-clipping失敗'); return null; }
 
+                // ── 非現実的形状の判定（実面積 ÷ 凸包面積 < 0.75）──
+                // Shoelaceで実面積を計算
+                let actualArea = 0;
+                for (let i = 0; i < poly.length; i++) {
+                    const j = (i + 1) % poly.length;
+                    actualArea += poly[i][0] * poly[j][1] - poly[j][0] * poly[i][1];
+                }
+                actualArea = Math.abs(actualArea * 0.5);
+
+                // 凸包面積を計算
+                let hullArea = 0;
+                if (poly.length >= 3) {
+                    // Graham scanで凸包取得（earClip2Dのpoly基準）
+                    const hullPts = (() => {
+                        const pts = poly.slice();
+                        let si = 0;
+                        for (let i = 1; i < pts.length; i++) {
+                            if (pts[i][1] < pts[si][1] || (pts[i][1] === pts[si][1] && pts[i][0] < pts[si][0])) si = i;
+                        }
+                        const pivot = pts[si];
+                        const others = pts.filter((_, i) => i !== si);
+                        others.sort((a, b) => {
+                            const da = Math.atan2(a[1]-pivot[1], a[0]-pivot[0]);
+                            const db = Math.atan2(b[1]-pivot[1], b[0]-pivot[0]);
+                            return da !== db ? da - db : (a[0]-pivot[0])**2+(a[1]-pivot[1])**2 - ((b[0]-pivot[0])**2+(b[1]-pivot[1])**2);
+                        });
+                        const cross = (o,a,b) => (a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
+                        const h = [pivot];
+                        for (const p of others) {
+                            while (h.length >= 2 && cross(h[h.length-2], h[h.length-1], p) <= 0) h.pop();
+                            h.push(p);
+                        }
+                        return h;
+                    })();
+                    for (let i = 0; i < hullPts.length; i++) {
+                        const j = (i + 1) % hullPts.length;
+                        hullArea += hullPts[i][0] * hullPts[j][1] - hullPts[j][0] * hullPts[i][1];
+                    }
+                    hullArea = Math.abs(hullArea * 0.5);
+                }
+
+                const areaRatio = hullArea > 0 ? actualArea / hullArea : 1;
+                const isUnrealistic = areaRatio < 0.75;
+                console.log(`[buildBottomCap] groundY=${groundY.toFixed(4)}, loop=${outerLoop.length}verts, tris=${tris.length}, areaRatio=${areaRatio.toFixed(3)}, isUnrealistic=${isUnrealistic}`);
+
                 // groundY に配置（下向き法線 = Y- 外向きになるよう頂点順逆転）
                 const verts = [];
                 for (const [i0, i1, i2] of tris) {
@@ -2472,8 +2526,7 @@
                 const capGeo = new THREE.BufferGeometry();
                 capGeo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
                 capGeo.computeVertexNormals();
-                console.log(`[buildBottomCap] groundY=${groundY.toFixed(4)}, loop=${outerLoop.length}verts, tris=${tris.length}`);
-                return capGeo;
+                return { geo: capGeo, isUnrealistic };
 
             } catch(e) {
                 console.warn('[buildBottomCap] 失敗:', e);
@@ -4011,8 +4064,8 @@
             //   ※ bottomCap は計算用一時オブジェクト。正規メッシュには追加しない。
             let mergedWithCap = mergedGeo;
             try {
-                const bottomCap = buildBottomCap(mergedGeo);
-                if (bottomCap) {
+                const capResult = buildBottomCap(mergedGeo);
+                if (capResult?.geo) {
                     const toNonIdx = (g) => {
                         const s = new THREE.BufferGeometry();
                         const ni = g.index ? g.toNonIndexed() : g;
@@ -4020,9 +4073,16 @@
                         return s;
                     };
                     const merged = BufferGeometryUtils.mergeGeometries([
-                        toNonIdx(mergedGeo), toNonIdx(bottomCap)
+                        toNonIdx(mergedGeo), toNonIdx(capResult.geo)
                     ]);
                     if (merged?.attributes?.position) mergedWithCap = merged;
+                    // 非現実的形状フラグ
+                    if (capResult.isUnrealistic) {
+                        _volumeIsUncertain = true;
+                        setTimeout(() => toast(
+                            '形状が非現実的な為、正確な体積を測れません', true
+                        ), 300);
+                    }
                 }
             } catch (e) {
                 console.warn('[bottomCap] 生成失敗、フォールバック:', e);
@@ -5572,7 +5632,7 @@ if (changed) {
          最新版チェック
          ═══════════════════════════════════════════════ -->
     <script>
-        const _CURRENT_VERSION = 'v1.6030';
+        const _CURRENT_VERSION = 'v1.6031';
         const _REMOTE_URL = 'https://osawa99999.github.io/VolChe/index.html';
 
         // updateStatus テキストを更新するヘルパー
